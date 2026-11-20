@@ -114,14 +114,22 @@ async function handle(req,env,ctx){
     return json({ok:true,url:`${url.origin}/api/media/${key}`});
   }
   return fail('Not found.',404);
-}
-export async function onRequest(context){
-  try{return await handle(context.request,context.env,context);}
-  catch(e){
-    console.error('API ERROR:',e?.stack||e?.message||e);
-    const message=e?.message==='Unexpected end of JSON input'?'Invalid request body.':
-      e?.message?.startsWith('Admin configuration is incomplete.')?e.message:
-      'The request could not be completed. Check Cloudflare Workers Logs.';
-    return json({error:message},500);
+
+export async function onRequest(context) {
+  try {
+    return await handle(
+      context.request,
+      context.env,
+      context
+    );
+  } catch (e) {
+    console.error("API ERROR:", e?.stack || e?.message || e);
+
+    return json({
+      error: e?.message || "Unknown server error",
+      database_configured: !!context.env.DB,
+      admin_email_configured: !!context.env.ADMIN_EMAIL,
+      admin_password_configured: !!context.env.ADMIN_PASSWORD
+    }, 500);
   }
 }
