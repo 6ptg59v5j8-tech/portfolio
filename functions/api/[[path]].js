@@ -1,4 +1,3 @@
-
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const MAX_BODY = 1_000_000;
@@ -96,6 +95,23 @@ function safeImageUrl(v) {
   return safeHttpUrl(v);
 }
 
+function cleanProjectDate(value) {
+  if (!value) return '';
+  const date = cleanText(value, 10);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Enter a valid project date.');
+  }
+
+  const parsed = new Date(date + 'T00:00:00Z');
+  if (Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error('Enter a valid project date.');
+  }
+
+  return date;
+}
+
 async function admin(req, env) {
   const token = getCookie(req);
   if (!token) return null;
@@ -123,10 +139,6 @@ function originOk(req, env) {
   }
 }
 
-async function requireAdmin(req, env) {
-  return await admin(req, env);
-}
-
 async function settings(env) {
   const rows = await env.DB.prepare('SELECT key,value FROM site_settings').all();
   return Object.fromEntries(rows.results.map(r => [r.key, r.value]));
@@ -141,7 +153,7 @@ async function content(env) {
   } catch {}
 
   const projects = await env.DB.prepare(
-    'SELECT id,title,category,description,image_url,project_url,sort_order FROM projects ORDER BY sort_order,id'
+    'SELECT id,title,category,description,image_url,project_url,project_date,sort_order FROM projects ORDER BY sort_order,id'
   ).all();
 
   return { settings: s, socials, projects: projects.results };
@@ -195,6 +207,7 @@ async function handle(req, env, ctx) {
     return fail('Request origin could not be verified.', 403);
   }
 
+  // PUBLIC IMAGE DELIVERY
   if (method === 'GET' && parts[0] === 'media' && parts[1] === 'uploads' && env.MEDIA) {
     const key = parts.slice(1).join('/');
     const object = await env.MEDIA.get(key);
@@ -209,6 +222,7 @@ async function handle(req, env, ctx) {
     return new Response(object.body, { headers });
   }
 
+  // STATUS
   if (method === 'GET' && route === 'status') {
     await ensureConfiguredAdmin(env);
 
@@ -218,10 +232,12 @@ async function handle(req, env, ctx) {
     return json({ admin_exists: a.n > 0, authenticated: !!user });
   }
 
+  // PUBLIC SITE CONTENT
   if (method === 'GET' && route === 'content') {
     return json(await content(env));
   }
 
+  // LOGIN
   if (method === 'POST' && route === 'login') {
     await ensureConfiguredAdmin(env);
 
@@ -290,6 +306,7 @@ async function handle(req, env, ctx) {
     });
   }
 
+  // LOGOUT
   if (method === 'POST' && route === 'logout') {
     const token = getCookie(req);
 
@@ -301,7 +318,7 @@ async function handle(req, env, ctx) {
     return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() });
   }
 
-  const user = await requireAdmin(req, env);
+  const user = await admin(req, env);
 
   if (['PUT', 'POST', 'DELETE'].includes(method)) {
     if (!user && !['setup', 'login', 'logout'].includes(route)) {
@@ -309,21 +326,21 @@ async function handle(req, env, ctx) {
     }
   }
 
-  // PUBLIC SKILLS LIST
+  // PUBLIC SKILLS
   if (method === 'GET' && route === 'skills') {
     const rows = await env.DB.prepare(
-      'SELECT id,name,category,description,experience_level,sort_order,is_visible FROM skills WHERE is_visible=1 ORDER BY sort_order,id'
+      'SELECT id,name,category,description,experience_level,image_url,sort_order,is_visible FROM skills WHERE is_visible=1 ORDER BY sort_order,id'
     ).all();
 
     return json({ skills: rows.results });
   }
 
-  // ADMIN SKILLS LIST
+  // ADMIN SKILLS
   if (method === 'GET' && route === 'admin/skills') {
     if (!user) return fail('Please sign in again.', 401);
 
     const rows = await env.DB.prepare(
-      'SELECT id,name,category,description,experience_level,sort_order,is_visible FROM skills ORDER BY sort_order,id'
+      'SELECT id,name,category,description,experience_level,image_url,sort_order,is_visible FROM skills ORDER BY sort_order,id'
     ).all();
 
     return json({ skills: rows.results });
@@ -338,6 +355,7 @@ async function handle(req, env, ctx) {
     const experience = d.experience_level
       ? cleanText(d.experience_level, 50)
       : null;
+    const imageUrl = safeImageUrl(d.image_url || '');
 
     if (!name || !category) {
       return fail('Skill name and category are required.');
@@ -348,13 +366,14 @@ async function handle(req, env, ctx) {
     ).first();
 
     await env.DB.prepare(
-      'INSERT INTO skills(id,name,category,description,experience_level,sort_order,is_visible) VALUES(?,?,?,?,?,?,?)'
+      'INSERT INTO skills(id,name,category,description,experience_level,image_url,sort_order,is_visible) VALUES(?,?,?,?,?,?,?,?)'
     ).bind(
       crypto.randomUUID(),
       name,
       category,
       description,
       experience,
+      imageUrl,
       max.n + 1,
       d.is_visible === false ? 0 : 1
     ).run();
@@ -371,18 +390,20 @@ async function handle(req, env, ctx) {
     const experience = d.experience_level
       ? cleanText(d.experience_level, 50)
       : null;
+    const imageUrl = safeImageUrl(d.image_url || '');
 
     if (!name || !category) {
       return fail('Skill name and category are required.');
     }
 
     await env.DB.prepare(
-      'UPDATE skills SET name=?,category=?,description=?,experience_level=?,is_visible=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
+      'UPDATE skills SET name=?,category=?,description=?,experience_level=?,image_url=?,is_visible=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
     ).bind(
       name,
       category,
       description,
       experience,
+      imageUrl,
       d.is_visible === false ? 0 : 1,
       parts[1]
     ).run();
@@ -392,22 +413,22 @@ async function handle(req, env, ctx) {
 
   // DELETE SKILL
   if (parts[0] === 'skills' && parts.length === 2 && method === 'DELETE') {
-    await env.DB.prepare(
-      'DELETE FROM skills WHERE id=?'
-    ).bind(parts[1]).run();
+    await env.DB.prepare('DELETE FROM skills WHERE id=?')
+      .bind(parts[1]).run();
 
     return json({ ok: true });
   }
 
-  // EXISTING PROJECT ROUTES
+  // PROJECT LIST
   if (method === 'GET' && route === 'projects') {
     const rows = await env.DB.prepare(
-      'SELECT id,title,category,description,image_url,project_url,sort_order FROM projects ORDER BY sort_order,id'
+      'SELECT id,title,category,description,image_url,project_url,project_date,sort_order FROM projects ORDER BY sort_order,id'
     ).all();
 
     return json({ projects: rows.results });
   }
 
+  // SAVE SITE CONTENT
   if (method === 'PUT' && route === 'content') {
     const d = await body(req);
     const s = d.settings || {};
@@ -449,6 +470,7 @@ async function handle(req, env, ctx) {
     return json({ ok: true });
   }
 
+  // ADD PROJECT
   if (method === 'POST' && route === 'projects') {
     const d = await body(req);
     const title = cleanText(d.title, 120);
@@ -460,7 +482,7 @@ async function handle(req, env, ctx) {
     ).first();
 
     await env.DB.prepare(
-      'INSERT INTO projects(id,title,category,description,image_url,project_url,sort_order) VALUES(?,?,?,?,?,?,?)'
+      'INSERT INTO projects(id,title,category,description,image_url,project_url,project_date,sort_order) VALUES(?,?,?,?,?,?,?,?)'
     ).bind(
       crypto.randomUUID(),
       title,
@@ -468,12 +490,14 @@ async function handle(req, env, ctx) {
       cleanText(d.description || '', 1200),
       safeImageUrl(d.image_url || ''),
       safeHttpUrl(d.project_url || ''),
+      cleanProjectDate(d.project_date || ''),
       max.n + 1
     ).run();
 
     return json({ ok: true });
   }
 
+  // REORDER PROJECTS
   if (method === 'PUT' && route === 'projects/reorder') {
     const d = await body(req);
 
@@ -501,6 +525,7 @@ async function handle(req, env, ctx) {
     return json({ ok: true });
   }
 
+  // EDIT PROJECT
   if (parts[0] === 'projects' && parts.length === 2 && method === 'PUT') {
     const d = await body(req);
     const title = cleanText(d.title, 120);
@@ -508,24 +533,29 @@ async function handle(req, env, ctx) {
     if (!title) return fail('Project title is required.');
 
     await env.DB.prepare(
-      'UPDATE projects SET title=?,category=?,description=?,image_url=?,project_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
+      'UPDATE projects SET title=?,category=?,description=?,image_url=?,project_url=?,project_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
     ).bind(
       title,
       cleanText(d.category || '', 100),
       cleanText(d.description || '', 1200),
       safeImageUrl(d.image_url || ''),
       safeHttpUrl(d.project_url || ''),
+      cleanProjectDate(d.project_date || ''),
       parts[1]
     ).run();
 
     return json({ ok: true });
   }
 
+  // DELETE PROJECT
   if (parts[0] === 'projects' && parts.length === 2 && method === 'DELETE') {
-    await env.DB.prepare('DELETE FROM projects WHERE id=?').bind(parts[1]).run();
+    await env.DB.prepare('DELETE FROM projects WHERE id=?')
+      .bind(parts[1]).run();
+
     return json({ ok: true });
   }
 
+  // IMAGE UPLOAD
   if (method === 'POST' && route === 'upload') {
     if (!env.MEDIA) {
       return fail(
@@ -537,8 +567,13 @@ async function handle(req, env, ctx) {
     const form = await req.formData();
     const file = form.get('image');
 
-    if (!file || typeof file === 'string') return fail('Choose an image to upload.');
-    if (file.size > 5 * 1024 * 1024) return fail('Images must be 5 MB or smaller.');
+    if (!file || typeof file === 'string') {
+      return fail('Choose an image to upload.');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return fail('Images must be 5 MB or smaller.');
+    }
 
     const types = {
       'image/jpeg': 'jpg',
@@ -584,5 +619,3 @@ export async function onRequest(context) {
     }, 500);
   }
 }
-
-
