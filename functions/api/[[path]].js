@@ -127,6 +127,98 @@ async function requireAdmin(req, env) {
   return await admin(req, env);
 }
 
+
+  // Skills: public visitors only receive visible skills.
+  if (method === 'GET' && route === 'skills') {
+    const rows = await env.DB.prepare(
+      'SELECT id,name,category,description,experience_level,sort_order,is_visible FROM skills WHERE is_visible=1 ORDER BY sort_order,id'
+    ).all();
+
+    return json({ skills: rows.results });
+  }
+
+  // Skills: admin can view all skills, including hidden ones.
+  if (method === 'GET' && route === 'admin/skills') {
+    if (!user) return fail('Please sign in again.', 401);
+
+    const rows = await env.DB.prepare(
+      'SELECT id,name,category,description,experience_level,sort_order,is_visible FROM skills ORDER BY sort_order,id'
+    ).all();
+
+    return json({ skills: rows.results });
+  }
+
+  // Add a skill.
+  if (method === 'POST' && route === 'skills') {
+    const d = await body(req);
+    const name = cleanText(d.name || '', 100);
+    const category = cleanText(d.category || '', 50);
+    const description = cleanText(d.description || '', 500);
+    const experience = d.experience_level
+      ? cleanText(d.experience_level, 50)
+      : null;
+
+    if (!name || !category) {
+      return fail('Skill name and category are required.');
+    }
+
+    const max = await env.DB.prepare(
+      'SELECT COALESCE(MAX(sort_order),0) AS n FROM skills'
+    ).first();
+
+    await env.DB.prepare(
+      'INSERT INTO skills(id,name,category,description,experience_level,sort_order,is_visible) VALUES(?,?,?,?,?,?,?)'
+    ).bind(
+      crypto.randomUUID(),
+      name,
+      category,
+      description,
+      experience,
+      max.n + 1,
+      d.is_visible === false ? 0 : 1
+    ).run();
+
+    return json({ ok: true });
+  }
+
+  // Edit a skill.
+  if (parts[0] === 'skills' && parts.length === 2 && method === 'PUT') {
+    const d = await body(req);
+    const name = cleanText(d.name || '', 100);
+    const category = cleanText(d.category || '', 50);
+    const description = cleanText(d.description || '', 500);
+    const experience = d.experience_level
+      ? cleanText(d.experience_level, 50)
+      : null;
+
+    if (!name || !category) {
+      return fail('Skill name and category are required.');
+    }
+
+    await env.DB.prepare(
+      'UPDATE skills SET name=?,category=?,description=?,experience_level=?,is_visible=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
+    ).bind(
+      name,
+      category,
+      description,
+      experience,
+      d.is_visible === false ? 0 : 1,
+      parts[1]
+    ).run();
+
+    return json({ ok: true });
+  }
+
+  // Delete a skill.
+  if (parts[0] === 'skills' && parts.length === 2 && method === 'DELETE') {
+    await env.DB.prepare(
+      'DELETE FROM skills WHERE id=?'
+    ).bind(parts[1]).run();
+
+    return json({ ok: true });
+  }
+
+
 async function settings(env) {
   const rows = await env.DB.prepare('SELECT key,value FROM site_settings').all();
   return Object.fromEntries(rows.results.map(r => [r.key, r.value]));
