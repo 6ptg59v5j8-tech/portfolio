@@ -49,14 +49,6 @@ function showAuth() {
   if (authView) authView.hidden = false;
   if (dashboard) dashboard.hidden = true;
   if (loginForm) loginForm.hidden = false;
-
-  if (byId('auth-title')) {
-    byId('auth-title').textContent = 'Welcome back.';
-  }
-
-  if (byId('auth-copy')) {
-    byId('auth-copy').textContent = 'Sign in to manage your portfolio.';
-  }
 }
 
 async function boot() {
@@ -70,7 +62,7 @@ async function boot() {
     }
   } catch (error) {
     showAuth();
-    status('auth-message', error.message, true);
+    status('login-message', error.message, true);
   }
 }
 
@@ -79,7 +71,7 @@ async function boot() {
 if (loginForm) {
   loginForm.addEventListener('submit', async event => {
     event.preventDefault();
-    status('auth-message', 'Signing in…');
+    status('login-message', 'Signing in...');
 
     const form = new FormData(loginForm);
 
@@ -94,23 +86,29 @@ if (loginForm) {
 
       await showDashboard();
     } catch (error) {
-      status('auth-message', error.message, true);
+      status('login-message', error.message, true);
     }
   });
 }
 
 // LOGOUT
 
-if (byId('logout')) {
-  byId('logout').addEventListener('click', async () => {
+const logoutButton = byId('logout-button');
+
+if (logoutButton) {
+  logoutButton.addEventListener('click', async () => {
     try {
       await api('logout', {
         method: 'POST',
         body: '{}'
       });
-    } catch {}
 
-    showAuth();
+      showAuth();
+      if (loginForm) loginForm.reset();
+      status('login-message', '');
+    } catch (error) {
+      alert('Logout failed: ' + error.message);
+    }
   });
 }
 
@@ -120,8 +118,6 @@ async function showDashboard() {
   if (authView) authView.hidden = true;
   if (dashboard) dashboard.hidden = false;
 
-  // Load each section independently so one failure
-  // does not stop the other sections from appearing.
   await Promise.allSettled([
     loadContent(),
     loadProjects(),
@@ -187,7 +183,7 @@ function renderSocials() {
     label.setAttribute('aria-label', 'Social link label');
 
     const url = document.createElement('input');
-    url.placeholder = 'https://…';
+    url.placeholder = 'https://...';
     url.value = social.url || '';
     url.maxLength = 500;
     url.type = 'url';
@@ -239,7 +235,7 @@ if (byId('content-form')) {
         body: JSON.stringify({ settings, socials })
       });
 
-      status('content-status', 'Saved — your live website has been updated.');
+      status('content-status', 'Saved - your live website has been updated.');
     } catch (error) {
       status('content-status', error.message, true);
     }
@@ -349,8 +345,8 @@ function editProject(project) {
     }
   });
 
-  if (byId('project-form-title')) {
-    byId('project-form-title').textContent = 'Edit project';
+  if (byId('project-editor-title')) {
+    byId('project-editor-title').textContent = 'Edit project';
   }
 
   if (byId('project-editor')) {
@@ -365,8 +361,8 @@ if (byId('new-project')) {
 
     if (byId('project-form')) byId('project-form').reset();
 
-    if (byId('project-form-title')) {
-      byId('project-form-title').textContent = 'New project';
+    if (byId('project-editor-title')) {
+      byId('project-editor-title').textContent = 'New project';
     }
 
     if (byId('project-editor')) {
@@ -536,8 +532,8 @@ function editSkill(skill) {
       !(Number(skill.is_visible) === 0 || skill.is_visible === false);
   }
 
-  if (byId('skill-form-title')) {
-    byId('skill-form-title').textContent = 'Edit skill';
+  if (byId('skill-editor-title')) {
+    byId('skill-editor-title').textContent = 'Edit skill';
   }
 
   if (byId('skill-editor')) {
