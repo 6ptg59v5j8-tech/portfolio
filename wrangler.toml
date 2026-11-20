@@ -3,8 +3,6 @@ name = "portfolio"
 compatibility_date = "2026-11-20"
 pages_build_output_dir = "./public"
 
-[vars]
-ADMIN_EMAIL = "admin@danielburden.uk"
 
 [[d1_databases]]
 binding = "DB"
