@@ -8,4 +8,4 @@ pages_build_output_dir = "./public"
 
 [vars]
 # Change this email in GitHub to choose your administrator login.
-ADMIN_EMAIL = "change-this@example.com"
+ADMIN_EMAIL = "admin@danielburden.uk"
