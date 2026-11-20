@@ -1,4 +1,3 @@
-
 const byId = id => document.getElementById(id);
 
 const authView = byId('auth-view');
@@ -67,7 +66,6 @@ async function boot() {
 }
 
 // LOGIN
-
 if (loginForm) {
   loginForm.addEventListener('submit', async event => {
     event.preventDefault();
@@ -92,7 +90,6 @@ if (loginForm) {
 }
 
 // LOGOUT
-
 const logoutButton = byId('logout-button');
 
 if (logoutButton) {
@@ -113,7 +110,6 @@ if (logoutButton) {
 }
 
 // DASHBOARD
-
 async function showDashboard() {
   if (authView) authView.hidden = true;
   if (dashboard) dashboard.hidden = false;
@@ -126,7 +122,6 @@ async function showDashboard() {
 }
 
 // TABS
-
 function activateTab(name) {
   document.querySelectorAll('.tab').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === name);
@@ -139,13 +134,10 @@ function activateTab(name) {
 }
 
 document.querySelectorAll('.tab').forEach(button => {
-  button.addEventListener('click', () => {
-    activateTab(button.dataset.tab);
-  });
+  button.addEventListener('click', () => activateTab(button.dataset.tab));
 });
 
 // SITE CONTENT
-
 async function loadContent() {
   try {
     const data = await api('content');
@@ -153,9 +145,7 @@ async function loadContent() {
 
     if (form) {
       Object.entries(data.settings || {}).forEach(([key, value]) => {
-        if (form.elements[key]) {
-          form.elements[key].value = value ?? '';
-        }
+        if (form.elements[key]) form.elements[key].value = value ?? '';
       });
     }
 
@@ -242,8 +232,22 @@ if (byId('content-form')) {
   });
 }
 
-// PROJECTS
+// IMAGE UPLOAD
+async function uploadImage(file) {
+  if (!file || !file.size) return '';
 
+  const upload = new FormData();
+  upload.append('image', file);
+
+  const result = await api('upload', {
+    method: 'POST',
+    body: upload
+  });
+
+  return result.url;
+}
+
+// PROJECTS
 async function loadProjects() {
   try {
     const data = await api('projects');
@@ -269,7 +273,10 @@ function renderProjects() {
     const subtitle = document.createElement('p');
 
     heading.textContent = project.title || 'Untitled project';
-    subtitle.textContent = project.category || 'Uncategorised';
+    subtitle.textContent = [
+      project.category || 'Uncategorised',
+      project.project_date || ''
+    ].filter(Boolean).join(' · ');
 
     info.append(heading, subtitle);
 
@@ -297,7 +304,6 @@ function renderProjects() {
 
 async function moveProject(index, delta) {
   const next = index + delta;
-
   if (next < 0 || next >= projects.length) return;
 
   const copy = [...projects];
@@ -306,9 +312,7 @@ async function moveProject(index, delta) {
   try {
     await api('projects/reorder', {
       method: 'PUT',
-      body: JSON.stringify({
-        ids: copy.map(project => project.id)
-      })
+      body: JSON.stringify({ ids: copy.map(project => project.id) })
     });
 
     await loadProjects();
@@ -340,9 +344,7 @@ function editProject(project) {
   form.reset();
 
   Object.entries(project).forEach(([key, value]) => {
-    if (form.elements[key]) {
-      form.elements[key].value = value ?? '';
-    }
+    if (form.elements[key]) form.elements[key].value = value ?? '';
   });
 
   if (byId('project-editor-title')) {
@@ -358,24 +360,19 @@ function editProject(project) {
 if (byId('new-project')) {
   byId('new-project').addEventListener('click', () => {
     editingId = null;
-
     if (byId('project-form')) byId('project-form').reset();
 
     if (byId('project-editor-title')) {
       byId('project-editor-title').textContent = 'New project';
     }
 
-    if (byId('project-editor')) {
-      byId('project-editor').hidden = false;
-    }
+    if (byId('project-editor')) byId('project-editor').hidden = false;
   });
 }
 
 if (byId('cancel-project')) {
   byId('cancel-project').addEventListener('click', () => {
-    if (byId('project-editor')) {
-      byId('project-editor').hidden = true;
-    }
+    if (byId('project-editor')) byId('project-editor').hidden = true;
   });
 }
 
@@ -386,25 +383,16 @@ if (byId('project-form')) {
     const form = event.currentTarget;
     const formData = new FormData(form);
 
-    let imageUrl = formData.get('image_url');
-    const file = formData.get('image_file');
+    let imageUrl = formData.get('image_url') || '';
 
     try {
-      if (file && file.size) {
-        const upload = new FormData();
-        upload.append('image', file);
+      const file = formData.get('image_file');
+      if (file && file.size) imageUrl = await uploadImage(file);
 
-        const result = await api('upload', {
-          method: 'POST',
-          body: upload
-        });
-
-        imageUrl = result.url;
-      }
-
-      const body = {
+      const payload = {
         title: formData.get('title'),
         category: formData.get('category'),
+        project_date: formData.get('project_date') || '',
         description: formData.get('description'),
         image_url: imageUrl,
         project_url: formData.get('project_url')
@@ -413,19 +401,16 @@ if (byId('project-form')) {
       if (editingId) {
         await api('projects/' + encodeURIComponent(editingId), {
           method: 'PUT',
-          body: JSON.stringify(body)
+          body: JSON.stringify(payload)
         });
       } else {
         await api('projects', {
           method: 'POST',
-          body: JSON.stringify(body)
+          body: JSON.stringify(payload)
         });
       }
 
-      if (byId('project-editor')) {
-        byId('project-editor').hidden = true;
-      }
-
+      byId('project-editor').hidden = true;
       status('project-status', 'Saved.');
       await loadProjects();
     } catch (error) {
@@ -435,7 +420,6 @@ if (byId('project-form')) {
 }
 
 // SKILLS
-
 async function loadSkills() {
   try {
     const data = await api('admin/skills');
@@ -470,13 +454,12 @@ function renderSkills() {
 
     heading.textContent = skill.name || 'Untitled skill';
 
-    const descriptionParts = [
+    details.textContent = [
       skill.category || 'Uncategorised',
       skill.experience_level || '',
       skill.description || ''
-    ].filter(Boolean);
+    ].filter(Boolean).join(' · ');
 
-    details.textContent = descriptionParts.join(' · ');
     visibility.textContent =
       Number(skill.is_visible) === 0 || skill.is_visible === false
         ? 'Hidden from website'
@@ -511,64 +494,37 @@ function editSkill(skill) {
 
   form.reset();
 
-  if (form.elements.name) {
-    form.elements.name.value = skill.name || '';
-  }
+  form.elements.name.value = skill.name || '';
+  form.elements.category.value = skill.category || 'Lighting';
+  form.elements.description.value = skill.description || '';
+  form.elements.experience_level.value = skill.experience_level || '';
+  form.elements.image_url.value = skill.image_url || '';
+  form.elements.is_visible.checked =
+    !(Number(skill.is_visible) === 0 || skill.is_visible === false);
 
-  if (form.elements.category) {
-    form.elements.category.value = skill.category || 'Other';
-  }
-
-  if (form.elements.description) {
-    form.elements.description.value = skill.description || '';
-  }
-
-  if (form.elements.experience_level) {
-    form.elements.experience_level.value = skill.experience_level || '';
-  }
-
-  if (form.elements.is_visible) {
-    form.elements.is_visible.checked =
-      !(Number(skill.is_visible) === 0 || skill.is_visible === false);
-  }
-
-  if (byId('skill-editor-title')) {
-    byId('skill-editor-title').textContent = 'Edit skill';
-  }
-
-  if (byId('skill-editor')) {
-    byId('skill-editor').hidden = false;
-    byId('skill-editor').scrollIntoView({ behavior: 'smooth' });
-  }
+  byId('skill-editor-title').textContent = 'Edit skill';
+  byId('skill-editor').hidden = false;
+  byId('skill-editor').scrollIntoView({ behavior: 'smooth' });
 }
 
 if (byId('new-skill')) {
   byId('new-skill').addEventListener('click', () => {
     editingSkillId = null;
 
-    if (byId('skill-form')) {
-      byId('skill-form').reset();
-
-      if (byId('skill-form').elements.is_visible) {
-        byId('skill-form').elements.is_visible.checked = true;
-      }
+    const form = byId('skill-form');
+    if (form) {
+      form.reset();
+      form.elements.is_visible.checked = true;
     }
 
-    if (byId('skill-form-title')) {
-      byId('skill-form-title').textContent = 'New skill';
-    }
-
-    if (byId('skill-editor')) {
-      byId('skill-editor').hidden = false;
-    }
+    byId('skill-editor-title').textContent = 'New skill';
+    byId('skill-editor').hidden = false;
   });
 }
 
 if (byId('cancel-skill')) {
   byId('cancel-skill').addEventListener('click', () => {
-    if (byId('skill-editor')) {
-      byId('skill-editor').hidden = true;
-    }
+    byId('skill-editor').hidden = true;
   });
 }
 
@@ -578,34 +534,36 @@ if (byId('skill-form')) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+    let imageUrl = formData.get('image_url') || '';
 
-    const body = {
+    const payload = {
       name: formData.get('name'),
       category: formData.get('category'),
       description: formData.get('description') || '',
       experience_level: formData.get('experience_level') || null,
-      is_visible: form.elements.is_visible
-        ? form.elements.is_visible.checked
-        : true
+      image_url: imageUrl,
+      is_visible: form.elements.is_visible.checked
     };
 
     try {
+      const file = formData.get('image_file');
+      if (file && file.size) {
+        payload.image_url = await uploadImage(file);
+      }
+
       if (editingSkillId) {
         await api('skills/' + encodeURIComponent(editingSkillId), {
           method: 'PUT',
-          body: JSON.stringify(body)
+          body: JSON.stringify(payload)
         });
       } else {
         await api('skills', {
           method: 'POST',
-          body: JSON.stringify(body)
+          body: JSON.stringify(payload)
         });
       }
 
-      if (byId('skill-editor')) {
-        byId('skill-editor').hidden = true;
-      }
-
+      byId('skill-editor').hidden = true;
       status('skill-status', 'Skill saved.');
       await loadSkills();
     } catch (error) {
@@ -630,5 +588,4 @@ async function deleteSkill(skill) {
 }
 
 // START
-
 boot();
