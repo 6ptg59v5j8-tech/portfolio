@@ -1,3 +1,4 @@
+
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const MAX_BODY = 1_000_000;
@@ -112,6 +113,39 @@ function cleanProjectDate(value) {
   return date;
 }
 
+function makeSlug(value) {
+  return cleanText(value || '', 160)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+}
+
+async function uniqueProjectSlug(env, value, excludeId = '') {
+  const base = makeSlug(value);
+
+  if (!base) throw new Error('A project URL slug is required.');
+
+  let slug = base;
+  let suffix = 2;
+
+  while (true) {
+    const existing = await env.DB.prepare(
+      'SELECT id FROM projects WHERE slug=? LIMIT 1'
+    ).bind(slug).first();
+
+    if (!existing || existing.id === excludeId) return slug;
+
+    slug = `${base}-${suffix++}`;
+
+    if (suffix > 1000) {
+      throw new Error('Could not create a unique project URL.');
+    }
+  }
+}
+
 async function admin(req, env) {
   const token = getCookie(req);
   if (!token) return null;
@@ -153,10 +187,52 @@ async function content(env) {
   } catch {}
 
   const projects = await env.DB.prepare(
-    'SELECT id,title,category,description,image_url,project_url,project_date,sort_order FROM projects ORDER BY sort_order,id'
+    `SELECT id,title,category,description,image_url,project_url,
+            project_date,sort_order,slug,venue,role,credits
+     FROM projects ORDER BY sort_order,id`
   ).all();
 
   return { settings: s, socials, projects: projects.results };
+}
+
+async function getProjectBySlug(env, slug) {
+  const project = await env.DB.prepare(
+    `SELECT id,title,category,description,image_url,project_url,
+            project_date,sort_order,slug,venue,role,credits
+     FROM projects WHERE slug=? LIMIT 1`
+  ).bind(slug).first();
+
+  if (!project) return null;
+
+  const photos = await env.DB.prepare(
+    `SELECT id,image_url,alt_text,sort_order
+     FROM project_photos
+     WHERE project_id=?
+     ORDER BY sort_order,id`
+  ).bind(project.id).all();
+
+  const previous = await env.DB.prepare(
+    `SELECT id,title,slug
+     FROM projects
+     WHERE slug IS NOT NULL AND slug!=''
+       AND (sort_order < ? OR (sort_order = ? AND id < ?))
+     ORDER BY sort_order DESC,id DESC LIMIT 1`
+  ).bind(project.sort_order, project.sort_order, project.id).first();
+
+  const next = await env.DB.prepare(
+    `SELECT id,title,slug
+     FROM projects
+     WHERE slug IS NOT NULL AND slug!=''
+       AND (sort_order > ? OR (sort_order = ? AND id > ?))
+     ORDER BY sort_order ASC,id ASC LIMIT 1`
+  ).bind(project.sort_order, project.sort_order, project.id).first();
+
+  return {
+    project,
+    photos: photos.results,
+    previous,
+    next
+  };
 }
 
 async function ensureConfiguredAdmin(env) {
@@ -419,16 +495,30 @@ async function handle(req, env, ctx) {
     return json({ ok: true });
   }
 
+  // PUBLIC PRODUCTION DETAILS, GALLERY AND NAVIGATION
+  if (method === 'GET' &&
+      parts[0] === 'projects' &&
+      parts[1] === 'slug' &&
+      parts.length === 3) {
+    const result = await getProjectBySlug(env, parts[2]);
+
+    if (!result) return fail('Production not found.', 404);
+
+    return json(result);
+  }
+
   // PROJECT LIST
   if (method === 'GET' && route === 'projects') {
     const rows = await env.DB.prepare(
-      'SELECT id,title,category,description,image_url,project_url,project_date,sort_order FROM projects ORDER BY sort_order,id'
+      `SELECT id,title,category,description,image_url,project_url,
+              project_date,sort_order,slug,venue,role,credits
+       FROM projects ORDER BY sort_order,id`
     ).all();
 
     return json({ projects: rows.results });
   }
 
-  // SAVE SITE CONTENT
+  // SAVE SITE CONTENT AND BRANDING
   if (method === 'PUT' && route === 'content') {
     const d = await body(req);
     const s = d.settings || {};
@@ -442,16 +532,22 @@ async function handle(req, env, ctx) {
       contact_title: 150,
       contact_text: 500,
       location: 100,
-      email: 254
+      email: 254,
+      logo_url: 1000,
+      favicon_url: 1000
     };
 
     if (!validEmail(s.email)) return fail('Enter a valid contact email.');
 
-    const statements = Object.entries(allowed).map(([k, max]) =>
-      env.DB.prepare(
+    const statements = Object.entries(allowed).map(([k, max]) => {
+      const value = ['logo_url', 'favicon_url'].includes(k)
+        ? safeImageUrl(s[k] ?? '')
+        : cleanText(s[k] ?? '', max);
+
+      return env.DB.prepare(
         'INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value'
-      ).bind(k, cleanText(s[k] ?? '', max))
-    );
+      ).bind(k, value);
+    });
 
     const socials = Array.isArray(d.socials)
       ? d.socials.slice(0, 12).map(x => ({
@@ -470,31 +566,42 @@ async function handle(req, env, ctx) {
     return json({ ok: true });
   }
 
-  // ADD PROJECT
+  // ADD PROJECT / PRODUCTION
   if (method === 'POST' && route === 'projects') {
     const d = await body(req);
-    const title = cleanText(d.title, 120);
+    const title = cleanText(d.title || '', 120);
 
     if (!title) return fail('Project title is required.');
+
+    const slug = await uniqueProjectSlug(env, d.slug || title);
 
     const max = await env.DB.prepare(
       'SELECT COALESCE(MAX(sort_order),0) AS n FROM projects'
     ).first();
 
+    const id = crypto.randomUUID();
+
     await env.DB.prepare(
-      'INSERT INTO projects(id,title,category,description,image_url,project_url,project_date,sort_order) VALUES(?,?,?,?,?,?,?,?)'
+      `INSERT INTO projects
+       (id,title,category,description,image_url,project_url,project_date,
+        sort_order,slug,venue,role,credits)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
-      crypto.randomUUID(),
+      id,
       title,
       cleanText(d.category || '', 100),
-      cleanText(d.description || '', 1200),
+      cleanText(d.description || '', 3000),
       safeImageUrl(d.image_url || ''),
       safeHttpUrl(d.project_url || ''),
       cleanProjectDate(d.project_date || ''),
-      max.n + 1
+      max.n + 1,
+      slug,
+      cleanText(d.venue || '', 200),
+      cleanText(d.role || '', 200),
+      cleanText(d.credits || '', 3000)
     ).run();
 
-    return json({ ok: true });
+    return json({ ok: true, id, slug });
   }
 
   // REORDER PROJECTS
@@ -525,30 +632,141 @@ async function handle(req, env, ctx) {
     return json({ ok: true });
   }
 
-  // EDIT PROJECT
+  // EDIT PROJECT / PRODUCTION
   if (parts[0] === 'projects' && parts.length === 2 && method === 'PUT') {
     const d = await body(req);
-    const title = cleanText(d.title, 120);
+    const title = cleanText(d.title || '', 120);
 
     if (!title) return fail('Project title is required.');
 
+    const current = await env.DB.prepare(
+      'SELECT id,slug FROM projects WHERE id=?'
+    ).bind(parts[1]).first();
+
+    if (!current) return fail('Project not found.', 404);
+
+    const slug = await uniqueProjectSlug(
+      env,
+      d.slug || current.slug || title,
+      parts[1]
+    );
+
     await env.DB.prepare(
-      'UPDATE projects SET title=?,category=?,description=?,image_url=?,project_url=?,project_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'
+      `UPDATE projects
+       SET title=?,category=?,description=?,image_url=?,project_url=?,
+           project_date=?,slug=?,venue=?,role=?,credits=?,
+           updated_at=CURRENT_TIMESTAMP
+       WHERE id=?`
     ).bind(
       title,
       cleanText(d.category || '', 100),
-      cleanText(d.description || '', 1200),
+      cleanText(d.description || '', 3000),
       safeImageUrl(d.image_url || ''),
       safeHttpUrl(d.project_url || ''),
       cleanProjectDate(d.project_date || ''),
+      slug,
+      cleanText(d.venue || '', 200),
+      cleanText(d.role || '', 200),
+      cleanText(d.credits || '', 3000),
       parts[1]
     ).run();
+
+    return json({ ok: true, slug });
+  }
+
+  // ADD A PHOTO TO A PRODUCTION GALLERY
+  if (parts[0] === 'projects' &&
+      parts.length === 3 &&
+      parts[2] === 'photos' &&
+      method === 'POST') {
+    const projectId = parts[1];
+    const d = await body(req);
+    const imageUrl = safeImageUrl(d.image_url || '');
+
+    if (!imageUrl) return fail('Choose an image first.');
+
+    const project = await env.DB.prepare(
+      'SELECT id FROM projects WHERE id=?'
+    ).bind(projectId).first();
+
+    if (!project) return fail('Project not found.', 404);
+
+    const max = await env.DB.prepare(
+      'SELECT COALESCE(MAX(sort_order),0) AS n FROM project_photos WHERE project_id=?'
+    ).bind(projectId).first();
+
+    const id = crypto.randomUUID();
+
+    await env.DB.prepare(
+      `INSERT INTO project_photos
+       (id,project_id,image_url,alt_text,sort_order)
+       VALUES(?,?,?,?,?)`
+    ).bind(
+      id,
+      projectId,
+      imageUrl,
+      cleanText(d.alt_text || '', 200),
+      max.n + 1
+    ).run();
+
+    return json({ ok: true, id });
+  }
+
+  // REORDER GALLERY PHOTOS
+  if (parts[0] === 'projects' &&
+      parts.length === 4 &&
+      parts[2] === 'photos' &&
+      parts[3] === 'reorder' &&
+      method === 'PUT') {
+    const projectId = parts[1];
+    const d = await body(req);
+
+    if (!Array.isArray(d.ids) || d.ids.length > 100) {
+      return fail('Invalid photo order.');
+    }
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM project_photos WHERE project_id=?'
+    ).bind(projectId).all();
+
+    const ids = existing.results.map(photo => photo.id);
+
+    if (
+      d.ids.length !== ids.length ||
+      !d.ids.every(id => ids.includes(id)) ||
+      new Set(d.ids).size !== ids.length
+    ) {
+      return fail('Photo order does not match saved photos.');
+    }
+
+    await env.DB.batch(
+      d.ids.map((id, i) =>
+        env.DB.prepare(
+          'UPDATE project_photos SET sort_order=? WHERE id=? AND project_id=?'
+        ).bind(i + 1, id, projectId)
+      )
+    );
 
     return json({ ok: true });
   }
 
-  // DELETE PROJECT
+  // DELETE A GALLERY PHOTO
+  if (parts[0] === 'projects' &&
+      parts.length === 4 &&
+      parts[2] === 'photos' &&
+      method === 'DELETE') {
+    await env.DB.prepare(
+      'DELETE FROM project_photos WHERE id=? AND project_id=?'
+    ).bind(parts[3], parts[1]).run();
+
+    return json({ ok: true });
+  }
+
+  // DELETE PROJECT / PRODUCTION
   if (parts[0] === 'projects' && parts.length === 2 && method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM project_photos WHERE project_id=?')
+      .bind(parts[1]).run();
+
     await env.DB.prepare('DELETE FROM projects WHERE id=?')
       .bind(parts[1]).run();
 
