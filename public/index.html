@@ -11,12 +11,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/about-photo.css">
-  <link rel="stylesheet" href="/announcement.css">
-  <script src="/site.js" defer></script>
-  <script src="/about-photo.js" defer></script>
-  <script src="/announcement.js" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261121-fix2">
+  <link rel="stylesheet" href="/about-photo.css?v=20261121-fix2">
+  <link rel="stylesheet" href="/announcement.css?v=20261121-fix2">
+  <script src="/site.js?v=20261121-fix2" defer></script>
+  <script src="/about-photo.js?v=20261121-fix2" defer></script>
+  <script src="/announcement.js?v=20261121-fix2" defer></script>
 </head>
 <body id="top">
   <div id="announcement-banner" class="announcement-banner" hidden>
@@ -83,11 +83,23 @@
 
     <section id="skills" class="skills-section section-wrap">
       <div class="section-heading">
-        <div><span class="section-kicker">03 — WHAT I DO</span><h2>Skills &amp;<br>technical experience<span class="accent">.</span></h2></div>
-        <p class="section-note">The skills and knowledge I bring<br>to productions and live events.</p>
+        <div><span class="section-kicker">03 — WHAT I DO</span><h2 id="skills-section-title">Skills &amp;<br>technical experience<span class="accent">.</span></h2></div>
+        <p class="section-note" id="skills-section-note">The skills and knowledge I bring<br>to productions and live events.</p>
       </div>
-      <div id="skills-groups" class="skills-groups" aria-live="polite">
-        <p class="skills-empty">Skills will appear here soon.</p>
+      <div class="skills-education-switch" role="tablist" aria-label="Choose skills or education">
+        <span class="skills-education-thumb" aria-hidden="true"></span>
+        <button class="skills-education-option is-active" type="button" role="tab" aria-selected="true" aria-controls="skills-view" data-view="skills">Skills</button>
+        <button class="skills-education-option" type="button" role="tab" aria-selected="false" aria-controls="education-view" data-view="education">Education</button>
+      </div>
+      <div id="skills-view" class="skills-education-panel is-active" role="tabpanel" aria-label="Skills">
+        <div id="skills-groups" class="skills-groups" aria-live="polite">
+          <p class="skills-empty">Skills will appear here soon.</p>
+        </div>
+      </div>
+      <div id="education-view" class="skills-education-panel" role="tabpanel" aria-label="Education" hidden>
+        <div id="education-list" class="education-list" aria-live="polite">
+          <p class="skills-empty">Education details will appear here soon.</p>
+        </div>
       </div>
     </section>
 
