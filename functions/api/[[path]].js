@@ -146,6 +146,28 @@ async function uniqueProjectSlug(env, value, excludeId = '') {
   }
 }
 
+/*
+ * Give older projects their missing slugs.
+ * Existing slugs are preserved.
+ */
+async function ensureProjectSlugs(env) {
+  const rows = await env.DB.prepare(
+    `SELECT id,title FROM projects
+     WHERE slug IS NULL OR slug=''
+     ORDER BY sort_order,id`
+  ).all();
+
+  for (const row of rows.results) {
+    const slug = await uniqueProjectSlug(env, row.title, row.id);
+
+    await env.DB.prepare(
+      `UPDATE projects
+       SET slug=?,updated_at=CURRENT_TIMESTAMP
+       WHERE id=? AND (slug IS NULL OR slug='')`
+    ).bind(slug, row.id).run();
+  }
+}
+
 async function admin(req, env) {
   const token = getCookie(req);
   if (!token) return null;
@@ -186,6 +208,8 @@ async function content(env) {
     socials = JSON.parse(s.socials || '[]');
   } catch {}
 
+  await ensureProjectSlugs(env);
+
   const projects = await env.DB.prepare(
     `SELECT id,title,category,description,image_url,project_url,
             project_date,sort_order,slug,venue,role,credits
@@ -195,35 +219,14 @@ async function content(env) {
   return { settings: s, socials, projects: projects.results };
 }
 
-
 async function getProjectBySlug(env, slug) {
-  let project = await env.DB.prepare(
+  await ensureProjectSlugs(env);
+
+  const project = await env.DB.prepare(
     `SELECT id,title,category,description,image_url,project_url,
             project_date,sort_order,slug,venue,role,credits
      FROM projects WHERE slug=? LIMIT 1`
   ).bind(slug).first();
-
-  // Support older projects that were created before slugs were added.
-  if (!project) {
-    const rows = await env.DB.prepare(
-      `SELECT id,title,slug FROM projects
-       WHERE slug IS NULL OR slug=''`
-    ).all();
-
-    for (const row of rows.results) {
-      const generatedSlug = await uniqueProjectSlug(env, row.title, row.id);
-
-      await env.DB.prepare(
-        'UPDATE projects SET slug=? WHERE id=? AND (slug IS NULL OR slug=\'\')'
-      ).bind(generatedSlug, row.id).run();
-    }
-
-    project = await env.DB.prepare(
-      `SELECT id,title,category,description,image_url,project_url,
-              project_date,sort_order,slug,venue,role,credits
-       FROM projects WHERE slug=? LIMIT 1`
-    ).bind(slug).first();
-  }
 
   if (!project) return null;
 
@@ -255,7 +258,6 @@ async function getProjectBySlug(env, slug) {
     next
   };
 }
-
 
 async function ensureConfiguredAdmin(env) {
   const email = typeof env.ADMIN_EMAIL === 'string'
@@ -531,6 +533,8 @@ async function handle(req, env, ctx) {
 
   // PROJECT LIST
   if (method === 'GET' && route === 'projects') {
+    await ensureProjectSlugs(env);
+
     const rows = await env.DB.prepare(
       `SELECT id,title,category,description,image_url,project_url,
               project_date,sort_order,slug,venue,role,credits
