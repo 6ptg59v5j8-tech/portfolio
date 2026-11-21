@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -21,19 +20,13 @@
       : (value == null ? fallback : String(value));
   }
 
-  function makeSlug(value) {
-    return text(value)
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
 
   function projectPath(project) {
+    // Only link to an internal production page when the API supplies a real
+    // database slug. Do not invent a route from the title: that can create
+    // links to pages which do not exist yet.
     const slug = text(project.slug).trim();
-    const finalSlug = slug || makeSlug(project.title);
-    return finalSlug ? `/projects/${encodeURIComponent(finalSlug)}` : "";
+    return slug ? `/projects/${encodeURIComponent(slug)}` : "";
   }
 
   function formatProjectDate(value) {
@@ -150,6 +143,7 @@
           "aria-label",
           `Find out more about ${text(project.title, "this project")}`
         );
+        link.setAttribute("data-project-link", "true");
 
         const prompt = document.createElement("span");
         prompt.className = "project-card-prompt";
@@ -190,6 +184,7 @@
           "aria-label",
           `View ${text(project.title, "project")}`
         );
+        cardLink.setAttribute("data-project-link", "true");
 
         cardLink.append(meta);
         card.append(art, cardLink);
@@ -300,6 +295,120 @@
       section.append(heading, cards);
       container.append(section);
     });
+  }
+
+
+  function renderEducation(entries) {
+    const container = $("#education-list");
+    if (!container) return;
+    container.replaceChildren();
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "skills-empty";
+      empty.textContent = "Education details will appear here soon.";
+      container.append(empty);
+      return;
+    }
+
+    entries.forEach(entry => {
+      const card = document.createElement("article");
+      card.className = "skill-card education-card";
+
+      const content = document.createElement("div");
+      content.className = "skill-card-content";
+
+      const heading = document.createElement("h4");
+      heading.textContent = text(entry.qualification, "Qualification");
+
+      const institution = document.createElement("p");
+      institution.textContent = text(entry.institution);
+
+      content.append(heading, institution);
+
+      const dates = [text(entry.start_date), text(entry.end_date)].filter(Boolean).join(" — ");
+      if (dates) {
+        const date = document.createElement("span");
+        date.className = "skill-level";
+        date.textContent = dates;
+        content.append(date);
+      }
+
+      const descriptionText = text(entry.description).trim();
+      if (descriptionText) {
+        const description = document.createElement("p");
+        description.textContent = descriptionText;
+        content.append(description);
+      }
+
+      card.append(content);
+      container.append(card);
+    });
+  }
+
+  function setupSkillsEducationSwitch() {
+    const switcher = $(".skills-education-switch");
+    if (!switcher) return;
+    const buttons = [...switcher.querySelectorAll("[data-view]")];
+    const panels = { skills: $("#skills-view"), education: $("#education-view") };
+    const thumb = $(".skills-education-thumb", switcher);
+    const title = $("#skills-section-title");
+    const note = $("#skills-section-note");
+
+    function activate(view, focusButton = false) {
+      const selected = buttons.find(button => button.dataset.view === view) || buttons[0];
+      buttons.forEach(button => {
+        const active = button === selected;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+        button.tabIndex = active ? 0 : -1;
+      });
+      switcher.dataset.active = selected.dataset.view;
+      if (thumb) thumb.style.transform = selected.dataset.view === "education" ? "translateX(100%)" : "translateX(0)";
+      if (title) title.innerHTML = selected.dataset.view === "education"
+        ? 'Education<span class="accent">.</span>'
+        : 'Skills &amp;<br>technical experience<span class="accent">.</span>';
+      if (note) note.innerHTML = selected.dataset.view === "education"
+        ? 'My academic background<br>and formal training.'
+        : 'The skills and knowledge I bring<br>to productions and live events.';
+      Object.entries(panels).forEach(([key, panel]) => {
+        if (!panel) return;
+        const active = key === selected.dataset.view;
+        if (active) {
+          panel.hidden = false;
+          panel.classList.remove("panel-enter");
+          requestAnimationFrame(() => panel.classList.add("panel-enter"));
+          panel.setAttribute("aria-hidden", "false");
+        } else {
+          panel.hidden = true;
+          panel.classList.remove("panel-enter");
+          panel.setAttribute("aria-hidden", "true");
+        }
+      });
+      if (focusButton) selected.focus();
+    }
+
+    buttons.forEach((button, index) => {
+      button.addEventListener("click", () => activate(button.dataset.view));
+      button.addEventListener("keydown", event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length;
+        activate(buttons[next].dataset.view, true);
+      });
+    });
+    activate("skills");
+  }
+
+  async function loadPublicEducation() {
+    try {
+      const response = await fetch("/api/education", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load education.");
+      const data = await response.json();
+      renderEducation(Array.isArray(data) ? data : data.education || []);
+    } catch (error) {
+      console.error("Education:", error);
+    }
   }
 
   function applyContent(data) {
@@ -449,6 +558,8 @@
     year.textContent = new Date().getFullYear();
   }
 
+  setupSkillsEducationSwitch();
   loadSite();
   loadPublicSkills();
+  loadPublicEducation();
 })();
