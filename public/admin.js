@@ -8,11 +8,43 @@ const loginForm = byId('login-form');
 let projects = [];
 let socials = [];
 let skills = [];
+let galleryPhotos = [];
 let editingId = null;
 let editingSkillId = null;
-let galleryPhotos = [];
+let siteSettings = {};
+let bannerMessages = [];
 
-// API
+let toastTimer;
+
+function showSavedToast(message = 'Changes saved') {
+  const toast = byId('admin-toast');
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.classList.add('visible');
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+function status(id, msg, error = false) {
+  const el = byId(id);
+  if (el) {
+    el.textContent = msg;
+    el.classList.toggle('error', error);
+  }
+
+  if (!error && /\bsaved\b|\buploaded\b|\bdeleted\b/i.test(msg)) {
+    showSavedToast();
+  }
+}
+
+function setValue(form, name, value) {
+  if (form?.elements?.[name]) {
+    form.elements[name].value = value ?? '';
+  }
+}
+
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
 
@@ -39,35 +71,16 @@ async function api(path, options = {}) {
   return data;
 }
 
-function status(id, msg, error = false) {
-  const el = byId(id);
-  if (!el) return;
-
-  el.textContent = msg;
-  el.classList.toggle('error', error);
-}
-
-function setValue(form, name, value) {
-  if (form?.elements?.[name]) {
-    form.elements[name].value = value ?? '';
-  }
-}
-
 function showAuth() {
   if (authView) authView.hidden = false;
   if (dashboard) dashboard.hidden = true;
-  if (loginForm) loginForm.hidden = false;
 }
 
 async function boot() {
   try {
     const result = await api('status');
-
-    if (result.authenticated) {
-      await showDashboard();
-    } else {
-      showAuth();
-    }
+    if (result.authenticated) await showDashboard();
+    else showAuth();
   } catch (error) {
     showAuth();
     status('login-message', error.message, true);
@@ -90,7 +103,6 @@ if (loginForm) {
           password: form.get('password')
         })
       });
-
       await showDashboard();
     } catch (error) {
       status('login-message', error.message, true);
@@ -99,16 +111,10 @@ if (loginForm) {
 }
 
 // LOGOUT
-const logoutButton = byId('logout-button');
-
-if (logoutButton) {
-  logoutButton.addEventListener('click', async () => {
+if (byId('logout-button')) {
+  byId('logout-button').addEventListener('click', async () => {
     try {
-      await api('logout', {
-        method: 'POST',
-        body: '{}'
-      });
-
+      await api('logout', { method: 'POST', body: '{}' });
       showAuth();
       if (loginForm) loginForm.reset();
       status('login-message', '');
@@ -118,7 +124,7 @@ if (logoutButton) {
   });
 }
 
-// DASHBOARD
+// DASHBOARD AND TABS
 async function showDashboard() {
   if (authView) authView.hidden = true;
   if (dashboard) dashboard.hidden = false;
@@ -126,17 +132,17 @@ async function showDashboard() {
   await Promise.allSettled([
     loadContent(),
     loadProjects(),
-    loadSkills()
+    loadSkills(),
+    loadAnnouncements()
   ]);
 }
 
-// TABS
 function activateTab(name) {
   document.querySelectorAll('.tab').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === name);
   });
 
-  ['content', 'projects', 'skills'].forEach(panel => {
+  ['content', 'projects', 'skills', 'announcements'].forEach(panel => {
     const element = byId('panel-' + panel);
     if (element) element.hidden = panel !== name;
   });
@@ -146,7 +152,7 @@ document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => activateTab(button.dataset.tab));
 });
 
-// IMAGE UPLOAD
+// IMAGE UPLOAD AND PREVIEWS
 async function uploadImage(file) {
   if (!file || !file.size) return '';
 
@@ -168,149 +174,50 @@ function showImagePreview(previewId, url) {
   preview.replaceChildren();
 
   if (!url) {
-    preview.hidden = true;
+    const text = document.createElement('span');
+    text.className = 'sub';
+    text.textContent = 'No image uploaded yet.';
+    preview.append(text);
     return;
   }
 
   const image = document.createElement('img');
   image.src = url;
   image.alt = 'Image preview';
-  image.style.maxWidth = '180px';
-  image.style.maxHeight = '120px';
+  image.style.maxWidth = '220px';
+  image.style.maxHeight = '180px';
   image.style.objectFit = 'contain';
-
   preview.append(image);
-  preview.hidden = false;
 }
 
-// ABOUT SETTINGS CONTROLS
-function addAboutSettings(form, settings = {}) {
-  if (!form || byId('about-settings-editor')) return;
-
-  const section = document.createElement('section');
-  section.id = 'about-settings-editor';
-  section.style.cssText =
-    'margin-top:28px;padding-top:24px;border-top:1px solid #ddd;';
-
-  const heading = document.createElement('h3');
-  heading.textContent = 'About section';
-
-  const photoLabel = document.createElement('label');
-  photoLabel.textContent = 'About photo';
-  photoLabel.style.display = 'block';
-
-  const photoInput = document.createElement('input');
-  photoInput.type = 'file';
-  photoInput.id = 'about_photo_file';
-  photoInput.accept = 'image/*';
-  photoInput.style.display = 'block';
-  photoInput.style.margin = '10px 0';
-
-  const photoUrl = document.createElement('input');
-  photoUrl.type = 'hidden';
-  photoUrl.name = 'about_photo_url';
-  photoUrl.value = settings.about_photo_url || '';
-
-  const preview = document.createElement('div');
-  preview.id = 'about-photo-admin-preview';
-
-  const availabilityLabel = document.createElement('label');
-  availabilityLabel.textContent = 'Availability status';
-  availabilityLabel.style.display = 'block';
-  availabilityLabel.style.marginTop = '24px';
-
-  const availability = document.createElement('select');
-  availability.name = 'availability_status';
-  availability.id = 'availability_status';
-  availability.style.display = 'block';
-  availability.style.marginTop = '8px';
-
-  const availableOption = document.createElement('option');
-  availableOption.value = 'available';
-  availableOption.textContent = 'Available for opportunities';
-
-  const unavailableOption = document.createElement('option');
-  unavailableOption.value = 'not_accepting';
-  unavailableOption.textContent = 'Not accepting new clients';
-
-  availability.append(availableOption, unavailableOption);
-  availability.value = settings.availability_status === 'not_accepting'
-    ? 'not_accepting'
-    : 'available';
-
-  photoInput.addEventListener('change', () => {
-    const file = photoInput.files?.[0];
-    if (!file) return;
-
-    const temporaryUrl = URL.createObjectURL(file);
-    showImagePreview('about-photo-admin-preview', temporaryUrl);
-  });
-
-  photoLabel.append(photoInput);
-  section.append(
-    heading,
-    photoLabel,
-    photoUrl,
-    preview,
-    availabilityLabel,
-    availability
-  );
-
-  const submitButton = form.querySelector('[type="submit"]');
-
-  if (submitButton) {
-    form.insertBefore(section, submitButton);
-  } else {
-    form.append(section);
-  }
-
-  showImagePreview(
-    'about-photo-admin-preview',
-    settings.about_photo_url || ''
-  );
-}
-
-// SITE CONTENT AND BRANDING
+// CONTENT AND BRANDING
 async function loadContent() {
   try {
     const data = await api('content');
+    siteSettings = data.settings || {};
+
     const form = byId('content-form');
 
     if (form) {
-      addAboutSettings(form, data.settings || {});
-
-      Object.entries(data.settings || {}).forEach(([key, value]) => {
+      Object.entries(siteSettings).forEach(([key, value]) => {
         setValue(form, key, value);
       });
 
+      showImagePreview('logo-preview', siteSettings.logo_url || '');
+      showImagePreview('favicon-preview', siteSettings.favicon_url || '');
       showImagePreview(
-        'logo-preview',
-        data.settings?.logo_url || ''
+        'about-photo-admin-preview',
+        siteSettings.about_photo_url || ''
       );
 
-      showImagePreview(
-        'favicon-preview',
-        data.settings?.favicon_url || ''
-      );
+      setValue(form, 'about_photo_url', siteSettings.about_photo_url || '');
 
-      setValue(
-        form,
-        'about_photo_url',
-        data.settings?.about_photo_url || ''
-      );
-
-      const availability = byId('availability_status');
-      if (availability) {
-        availability.value =
-          data.settings?.availability_status === 'not_accepting'
+      if (form.elements.availability_status) {
+        form.elements.availability_status.value =
+          siteSettings.availability_status === 'not_accepting'
             ? 'not_accepting'
             : 'available';
       }
-
-      showImagePreview(
-        'about-photo-admin-preview',
-        data.settings?.about_photo_url || ''
-      );
     }
 
     socials = data.socials || [];
@@ -372,22 +279,20 @@ if (byId('add-social')) {
   });
 }
 
-// Branding file previews
+// IMAGE FILE PREVIEWS
 [
-  ['logo_file', 'logo_url', 'logo-preview'],
-  ['favicon_file', 'favicon_url', 'favicon-preview']
-].forEach(([fileName, urlName, previewId]) => {
-  const form = byId('content-form');
-  const fileInput = form?.elements?.[fileName];
+  ['logo_file', 'logo-preview'],
+  ['favicon_file', 'favicon-preview'],
+  ['about_photo_file', 'about-photo-admin-preview']
+].forEach(([fileName, previewId]) => {
+  const input = byId('content-form')?.elements?.[fileName];
+  if (!input) return;
 
-  if (!fileInput) return;
-
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files?.[0];
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
     if (!file) return;
 
-    const temporaryUrl = URL.createObjectURL(file);
-    showImagePreview(previewId, temporaryUrl);
+    showImagePreview(previewId, URL.createObjectURL(file));
   });
 });
 
@@ -440,6 +345,8 @@ if (byId('content-form')) {
         body: JSON.stringify({ settings, socials })
       });
 
+      siteSettings = { ...siteSettings, ...settings };
+
       showImagePreview('logo-preview', settings.logo_url || '');
       showImagePreview('favicon-preview', settings.favicon_url || '');
       showImagePreview(
@@ -447,9 +354,157 @@ if (byId('content-form')) {
         settings.about_photo_url || ''
       );
 
-      status('content-status', 'Saved - your live website has been updated.');
+      status('content-status', 'Changes saved.');
     } catch (error) {
       status('content-status', error.message, true);
+    }
+  });
+}
+
+// ANNOUNCEMENT BANNER
+function getBannerForm() {
+  return byId('announcement-form');
+}
+
+function renderBannerMessages() {
+  const root = byId('banner-message-list');
+  if (!root) return;
+
+  root.replaceChildren();
+
+  if (!bannerMessages.length) {
+    const empty = document.createElement('p');
+    empty.className = 'sub';
+    empty.textContent = 'No messages yet. Add a message to get started.';
+    root.append(empty);
+  }
+
+  bannerMessages.forEach((message, index) => {
+    const row = document.createElement('div');
+    row.className = 'banner-message-row';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 180;
+    input.value = message;
+    input.placeholder = 'Type your announcement...';
+    input.setAttribute('aria-label', `Announcement message ${index + 1}`);
+
+    input.addEventListener('input', () => {
+      bannerMessages[index] = input.value;
+      updateBannerPreview();
+    });
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'quiet';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => {
+      bannerMessages.splice(index, 1);
+      renderBannerMessages();
+      updateBannerPreview();
+    });
+
+    row.append(input, remove);
+    root.append(row);
+  });
+}
+
+function updateBannerPreview() {
+  const form = getBannerForm();
+  const preview = byId('banner-preview');
+  if (!form || !preview) return;
+
+  preview.style.background = form.elements.banner_background.value;
+  preview.style.color = form.elements.banner_text_colour.value;
+
+  const message = bannerMessages.find(item => item.trim()) ||
+    'Your announcement will appear here';
+
+  preview.textContent = message;
+}
+
+async function loadAnnouncements() {
+  try {
+    const data = await api('content');
+    siteSettings = { ...siteSettings, ...(data.settings || {}) };
+
+    const form = getBannerForm();
+    if (!form) return;
+
+    form.elements.banner_enabled.checked =
+      siteSettings.banner_enabled === 'true';
+
+    form.elements.banner_background.value =
+      siteSettings.banner_background || '#20211e';
+
+    form.elements.banner_text_colour.value =
+      siteSettings.banner_text_colour || '#ffffff';
+
+    form.elements.banner_speed.value =
+      siteSettings.banner_speed || '7';
+
+    try {
+      const parsed = JSON.parse(siteSettings.banner_messages || '[]');
+      bannerMessages = Array.isArray(parsed)
+        ? parsed.filter(item => typeof item === 'string')
+        : [];
+    } catch {
+      bannerMessages = [];
+    }
+
+    renderBannerMessages();
+    updateBannerPreview();
+  } catch (error) {
+    status('announcement-status', error.message, true);
+  }
+}
+
+if (byId('add-banner-message')) {
+  byId('add-banner-message').addEventListener('click', () => {
+    bannerMessages.push('');
+    renderBannerMessages();
+    updateBannerPreview();
+  });
+}
+
+[
+  'banner_background',
+  'banner_text_colour'
+].forEach(name => {
+  const input = getBannerForm()?.elements?.[name];
+  if (input) input.addEventListener('input', updateBannerPreview);
+});
+
+if (getBannerForm()) {
+  getBannerForm().addEventListener('submit', async event => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+
+    const settings = {
+      ...siteSettings,
+      banner_enabled: form.elements.banner_enabled.checked ? 'true' : 'false',
+      banner_messages: JSON.stringify(
+        bannerMessages.map(item => item.trim()).filter(Boolean)
+      ),
+      banner_background: form.elements.banner_background.value,
+      banner_text_colour: form.elements.banner_text_colour.value,
+      banner_speed: form.elements.banner_speed.value
+    };
+
+    try {
+      status('announcement-status', 'Saving announcement banner...');
+
+      await api('content', {
+        method: 'PUT',
+        body: JSON.stringify({ settings, socials })
+      });
+
+      siteSettings = settings;
+      status('announcement-status', 'Announcement banner saved.');
+    } catch (error) {
+      status('announcement-status', error.message, true);
     }
   });
 }
@@ -522,8 +577,8 @@ async function moveProject(index, delta) {
       method: 'PUT',
       body: JSON.stringify({ ids: copy.map(project => project.id) })
     });
-
     await loadProjects();
+    showSavedToast('Project order saved');
   } catch (error) {
     alert(error.message);
   }
@@ -551,7 +606,6 @@ async function deleteProject(project) {
 
 function resetGallery() {
   galleryPhotos = [];
-
   const root = byId('gallery-list');
   if (root) root.replaceChildren();
 
@@ -749,8 +803,7 @@ async function uploadGalleryPhotos() {
 }
 
 async function deleteGalleryPhoto(photo) {
-  if (!editingId) return;
-  if (!confirm('Remove this production photo?')) return;
+  if (!editingId || !confirm('Remove this production photo?')) return;
 
   try {
     await api(
@@ -776,13 +829,12 @@ async function moveGalleryPhoto(index, delta) {
   try {
     await api(`projects/${encodeURIComponent(editingId)}/photos/reorder`, {
       method: 'PUT',
-      body: JSON.stringify({
-        ids: copy.map(photo => photo.id)
-      })
+      body: JSON.stringify({ ids: copy.map(photo => photo.id) })
     });
 
     galleryPhotos = copy;
     renderGallery();
+    showSavedToast('Photo order saved');
   } catch (error) {
     status('project-status', error.message, true);
   }
@@ -799,7 +851,6 @@ if (byId('project-form')) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-
     let imageUrl = formData.get('image_url') || '';
 
     try {
@@ -823,36 +874,27 @@ if (byId('project-form')) {
         credits: formData.get('credits') || ''
       };
 
-      let savedProject;
-
       if (editingId) {
-        const result = await api('projects/' + encodeURIComponent(editingId), {
+        await api('projects/' + encodeURIComponent(editingId), {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
-
-        savedProject = result.project || result;
       } else {
         const result = await api('projects', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
-
-        savedProject = result.project || result;
+        const savedProject = result.project || result;
         editingId = savedProject.id;
       }
 
-      if (byId('project-editor')) {
-        byId('project-editor').hidden = true;
-      }
+      if (byId('project-editor')) byId('project-editor').hidden = true;
 
-      status('project-status', 'Production saved.');
+      status('project-status', 'Project saved.');
       await loadProjects();
 
       const matchingProject = projects.find(project => project.id === editingId);
-      if (matchingProject) {
-        editProject(matchingProject);
-      }
+      if (matchingProject) editProject(matchingProject);
     } catch (error) {
       status('project-status', error.message, true);
     }
@@ -893,7 +935,6 @@ function renderSkills() {
     const visibility = document.createElement('p');
 
     heading.textContent = skill.name || 'Untitled skill';
-
     details.textContent = [
       skill.category || 'Uncategorised',
       skill.experience_level || '',
@@ -962,18 +1003,14 @@ if (byId('new-skill')) {
     const form = byId('skill-form');
     if (form) {
       form.reset();
-      if (form.elements.is_visible) {
-        form.elements.is_visible.checked = true;
-      }
+      if (form.elements.is_visible) form.elements.is_visible.checked = true;
     }
 
     if (byId('skill-editor-title')) {
       byId('skill-editor-title').textContent = 'New skill';
     }
 
-    if (byId('skill-editor')) {
-      byId('skill-editor').hidden = false;
-    }
+    if (byId('skill-editor')) byId('skill-editor').hidden = false;
   });
 }
 
@@ -989,22 +1026,19 @@ if (byId('skill-form')) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    let imageUrl = formData.get('image_url') || '';
 
     const payload = {
       name: formData.get('name'),
       category: formData.get('category'),
       description: formData.get('description') || '',
       experience_level: formData.get('experience_level') || null,
-      image_url: imageUrl,
+      image_url: formData.get('image_url') || '',
       is_visible: form.elements.is_visible.checked
     };
 
     try {
       const file = formData.get('image_file');
-      if (file && file.size) {
-        payload.image_url = await uploadImage(file);
-      }
+      if (file && file.size) payload.image_url = await uploadImage(file);
 
       if (editingSkillId) {
         await api('skills/' + encodeURIComponent(editingSkillId), {
