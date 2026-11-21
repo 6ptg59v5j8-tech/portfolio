@@ -1,3 +1,4 @@
+
 const byId = id => document.getElementById(id);
 
 const authView = byId('auth-view');
@@ -9,7 +10,9 @@ let socials = [];
 let skills = [];
 let editingId = null;
 let editingSkillId = null;
+let galleryPhotos = [];
 
+// API
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
 
@@ -42,6 +45,12 @@ function status(id, msg, error = false) {
 
   el.textContent = msg;
   el.classList.toggle('error', error);
+}
+
+function setValue(form, name, value) {
+  if (form?.elements?.[name]) {
+    form.elements[name].value = value ?? '';
+  }
 }
 
 function showAuth() {
@@ -137,7 +146,44 @@ document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => activateTab(button.dataset.tab));
 });
 
-// SITE CONTENT
+// IMAGE UPLOAD
+async function uploadImage(file) {
+  if (!file || !file.size) return '';
+
+  const upload = new FormData();
+  upload.append('image', file);
+
+  const result = await api('upload', {
+    method: 'POST',
+    body: upload
+  });
+
+  return result.url;
+}
+
+function showImagePreview(previewId, url) {
+  const preview = byId(previewId);
+  if (!preview) return;
+
+  preview.replaceChildren();
+
+  if (!url) {
+    preview.hidden = true;
+    return;
+  }
+
+  const image = document.createElement('img');
+  image.src = url;
+  image.alt = 'Image preview';
+  image.style.maxWidth = '180px';
+  image.style.maxHeight = '100px';
+  image.style.objectFit = 'contain';
+
+  preview.append(image);
+  preview.hidden = false;
+}
+
+// SITE CONTENT AND BRANDING
 async function loadContent() {
   try {
     const data = await api('content');
@@ -145,8 +191,18 @@ async function loadContent() {
 
     if (form) {
       Object.entries(data.settings || {}).forEach(([key, value]) => {
-        if (form.elements[key]) form.elements[key].value = value ?? '';
+        setValue(form, key, value);
       });
+
+      showImagePreview(
+        'logo-preview',
+        data.settings?.logo_url || ''
+      );
+
+      showImagePreview(
+        'favicon-preview',
+        data.settings?.favicon_url || ''
+      );
     }
 
     socials = data.socials || [];
@@ -208,43 +264,68 @@ if (byId('add-social')) {
   });
 }
 
+// Branding file previews
+[
+  ['logo_file', 'logo_url', 'logo-preview'],
+  ['favicon_file', 'favicon_url', 'favicon-preview']
+].forEach(([fileName, urlName, previewId]) => {
+  const form = byId('content-form');
+  const fileInput = form?.elements?.[fileName];
+
+  if (!fileInput) return;
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    const temporaryUrl = URL.createObjectURL(file);
+    showImagePreview(previewId, temporaryUrl);
+  });
+});
+
 if (byId('content-form')) {
   byId('content-form').addEventListener('submit', async event => {
     event.preventDefault();
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const settings = {};
 
     for (const [key, value] of formData.entries()) {
+      if (value instanceof File) continue;
       settings[key] = value;
     }
 
     try {
+      status('content-status', 'Saving site content...');
+
+      // Upload logo and favicon files if selected.
+      const logoFile = form.elements.logo_file?.files?.[0];
+      const faviconFile = form.elements.favicon_file?.files?.[0];
+
+      if (logoFile?.size) {
+        settings.logo_url = await uploadImage(logoFile);
+        setValue(form, 'logo_url', settings.logo_url);
+      }
+
+      if (faviconFile?.size) {
+        settings.favicon_url = await uploadImage(faviconFile);
+        setValue(form, 'favicon_url', settings.favicon_url);
+      }
+
       await api('content', {
         method: 'PUT',
         body: JSON.stringify({ settings, socials })
       });
+
+      showImagePreview('logo-preview', settings.logo_url || '');
+      showImagePreview('favicon-preview', settings.favicon_url || '');
 
       status('content-status', 'Saved - your live website has been updated.');
     } catch (error) {
       status('content-status', error.message, true);
     }
   });
-}
-
-// IMAGE UPLOAD
-async function uploadImage(file) {
-  if (!file || !file.size) return '';
-
-  const upload = new FormData();
-  upload.append('image', file);
-
-  const result = await api('upload', {
-    method: 'POST',
-    body: upload
-  });
-
-  return result.url;
 }
 
 // PROJECTS
@@ -275,7 +356,8 @@ function renderProjects() {
     heading.textContent = project.title || 'Untitled project';
     subtitle.textContent = [
       project.category || 'Uncategorised',
-      project.project_date || ''
+      project.project_date || '',
+      project.venue || ''
     ].filter(Boolean).join(' · ');
 
     info.append(heading, subtitle);
@@ -322,21 +404,38 @@ async function moveProject(index, delta) {
 }
 
 async function deleteProject(project) {
-  if (!confirm(`Delete "${project.title}"?`)) return;
+  if (!confirm(`Delete "${project.title}" and its production photos?`)) return;
 
   try {
     await api('projects/' + encodeURIComponent(project.id), {
       method: 'DELETE'
     });
 
+    if (editingId === project.id) {
+      editingId = null;
+      if (byId('project-editor')) byId('project-editor').hidden = true;
+    }
+
+    status('project-status', 'Project deleted.');
     await loadProjects();
   } catch (error) {
     alert(error.message);
   }
 }
 
+function resetGallery() {
+  galleryPhotos = [];
+
+  const root = byId('gallery-list');
+  if (root) root.replaceChildren();
+
+  const fileInput = byId('gallery_files');
+  if (fileInput) fileInput.value = '';
+}
+
 function editProject(project) {
   editingId = project.id;
+  resetGallery();
 
   const form = byId('project-form');
   if (!form) return;
@@ -344,38 +443,230 @@ function editProject(project) {
   form.reset();
 
   Object.entries(project).forEach(([key, value]) => {
-    if (form.elements[key]) form.elements[key].value = value ?? '';
+    setValue(form, key, value);
   });
 
   if (byId('project-editor-title')) {
-    byId('project-editor-title').textContent = 'Edit project';
+    byId('project-editor-title').textContent = 'Edit production';
   }
 
   if (byId('project-editor')) {
     byId('project-editor').hidden = false;
     byId('project-editor').scrollIntoView({ behavior: 'smooth' });
   }
+
+  loadProjectGallery(project);
 }
 
 if (byId('new-project')) {
   byId('new-project').addEventListener('click', () => {
     editingId = null;
+    resetGallery();
+
     if (byId('project-form')) byId('project-form').reset();
 
     if (byId('project-editor-title')) {
-      byId('project-editor-title').textContent = 'New project';
+      byId('project-editor-title').textContent = 'New production';
     }
 
-    if (byId('project-editor')) byId('project-editor').hidden = false;
+    if (byId('project-editor')) {
+      byId('project-editor').hidden = false;
+      byId('project-editor').scrollIntoView({ behavior: 'smooth' });
+    }
   });
 }
 
 if (byId('cancel-project')) {
   byId('cancel-project').addEventListener('click', () => {
     if (byId('project-editor')) byId('project-editor').hidden = true;
+    editingId = null;
   });
 }
 
+// PRODUCTION GALLERY
+function galleryRoot() {
+  const editor = byId('gallery-editor');
+  if (!editor) return null;
+
+  let root = byId('gallery-list');
+
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'gallery-list';
+    root.className = 'gallery-list';
+    editor.append(root);
+  }
+
+  return root;
+}
+
+function renderGallery() {
+  const root = galleryRoot();
+  if (!root) return;
+
+  root.replaceChildren();
+
+  if (!galleryPhotos.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No production photos have been added yet.';
+    root.append(empty);
+    return;
+  }
+
+  galleryPhotos.forEach((photo, index) => {
+    const row = document.createElement('div');
+    row.className = 'project-row';
+
+    const image = document.createElement('img');
+    image.src = photo.image_url;
+    image.alt = photo.alt_text || 'Production photo';
+    image.loading = 'lazy';
+    image.style.width = '110px';
+    image.style.height = '75px';
+    image.style.objectFit = 'cover';
+
+    const details = document.createElement('div');
+    const label = document.createElement('p');
+    label.textContent = photo.alt_text || `Photo ${index + 1}`;
+    details.append(label);
+
+    const actions = document.createElement('div');
+    actions.className = 'project-actions';
+
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.textContent = '↑';
+    up.title = 'Move photo up';
+    up.disabled = index === 0;
+    up.addEventListener('click', () => moveGalleryPhoto(index, -1));
+
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.textContent = '↓';
+    down.title = 'Move photo down';
+    down.disabled = index === galleryPhotos.length - 1;
+    down.addEventListener('click', () => moveGalleryPhoto(index, 1));
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => deleteGalleryPhoto(photo));
+
+    actions.append(up, down, remove);
+    row.append(image, details, actions);
+    root.append(row);
+  });
+}
+
+async function loadProjectGallery(project) {
+  if (!project?.slug) {
+    renderGallery();
+    return;
+  }
+
+  try {
+    const data = await api(
+      'projects/slug/' + encodeURIComponent(project.slug)
+    );
+
+    galleryPhotos = data.photos || [];
+    renderGallery();
+  } catch (error) {
+    status('project-status', 'Could not load production photos: ' + error.message, true);
+  }
+}
+
+async function uploadGalleryPhotos() {
+  if (!editingId) {
+    status('project-status', 'Save the production first, then add its photos.', true);
+    return;
+  }
+
+  const input = byId('gallery_files');
+  const files = Array.from(input?.files || []).filter(file => file.size);
+
+  if (!files.length) {
+    status('project-status', 'Choose one or more photos first.', true);
+    return;
+  }
+
+  const button = byId('upload-gallery-photos');
+  if (button) button.disabled = true;
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      status('project-status', `Uploading photo ${i + 1} of ${files.length}...`);
+
+      const imageUrl = await uploadImage(files[i]);
+
+      await api(`projects/${encodeURIComponent(editingId)}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({
+          image_url: imageUrl,
+          alt_text: files[i].name.replace(/\.[^.]+$/, ''),
+          sort_order: galleryPhotos.length + i
+        })
+      });
+    }
+
+    if (input) input.value = '';
+
+    const project = projects.find(item => item.id === editingId);
+    if (project) await loadProjectGallery(project);
+
+    status('project-status', 'Production photos uploaded.');
+  } catch (error) {
+    status('project-status', error.message, true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function deleteGalleryPhoto(photo) {
+  if (!editingId) return;
+  if (!confirm('Remove this production photo?')) return;
+
+  try {
+    await api(
+      `projects/${encodeURIComponent(editingId)}/photos/${encodeURIComponent(photo.id)}`,
+      { method: 'DELETE' }
+    );
+
+    galleryPhotos = galleryPhotos.filter(item => item.id !== photo.id);
+    renderGallery();
+    status('project-status', 'Photo removed.');
+  } catch (error) {
+    status('project-status', error.message, true);
+  }
+}
+
+async function moveGalleryPhoto(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= galleryPhotos.length) return;
+
+  const copy = [...galleryPhotos];
+  [copy[index], copy[next]] = [copy[next], copy[index]];
+
+  try {
+    await api(`projects/${encodeURIComponent(editingId)}/photos/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ids: copy.map(photo => photo.id)
+      })
+    });
+
+    galleryPhotos = copy;
+    renderGallery();
+  } catch (error) {
+    status('project-status', error.message, true);
+  }
+}
+
+if (byId('upload-gallery-photos')) {
+  byId('upload-gallery-photos').addEventListener('click', uploadGalleryPhotos);
+}
+
+// PROJECT FORM
 if (byId('project-form')) {
   byId('project-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -386,33 +677,57 @@ if (byId('project-form')) {
     let imageUrl = formData.get('image_url') || '';
 
     try {
-      const file = formData.get('image_file');
-      if (file && file.size) imageUrl = await uploadImage(file);
+      status('project-status', 'Saving production...');
+
+      const coverFile = formData.get('image_file');
+      if (coverFile && coverFile.size) {
+        imageUrl = await uploadImage(coverFile);
+      }
 
       const payload = {
         title: formData.get('title'),
-        category: formData.get('category'),
+        slug: formData.get('slug') || '',
+        category: formData.get('category') || '',
         project_date: formData.get('project_date') || '',
-        description: formData.get('description'),
+        description: formData.get('description') || '',
         image_url: imageUrl,
-        project_url: formData.get('project_url')
+        project_url: formData.get('project_url') || '',
+        venue: formData.get('venue') || '',
+        role: formData.get('role') || '',
+        credits: formData.get('credits') || ''
       };
 
+      let savedProject;
+
       if (editingId) {
-        await api('projects/' + encodeURIComponent(editingId), {
+        const result = await api('projects/' + encodeURIComponent(editingId), {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
+
+        savedProject = result.project || result;
       } else {
-        await api('projects', {
+        const result = await api('projects', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
+
+        savedProject = result.project || result;
+        editingId = savedProject.id;
       }
 
-      byId('project-editor').hidden = true;
-      status('project-status', 'Saved.');
+      if (byId('project-editor')) {
+        byId('project-editor').hidden = true;
+      }
+
+      status('project-status', 'Production saved.');
       await loadProjects();
+
+      // Keep the saved project selected so its gallery can be managed.
+      const matchingProject = projects.find(project => project.id === editingId);
+      if (matchingProject) {
+        editProject(matchingProject);
+      }
     } catch (error) {
       status('project-status', error.message, true);
     }
@@ -494,17 +809,25 @@ function editSkill(skill) {
 
   form.reset();
 
-  form.elements.name.value = skill.name || '';
-  form.elements.category.value = skill.category || 'Lighting';
-  form.elements.description.value = skill.description || '';
-  form.elements.experience_level.value = skill.experience_level || '';
-  form.elements.image_url.value = skill.image_url || '';
-  form.elements.is_visible.checked =
-    !(Number(skill.is_visible) === 0 || skill.is_visible === false);
+  setValue(form, 'name', skill.name);
+  setValue(form, 'category', skill.category || 'Lighting');
+  setValue(form, 'description', skill.description);
+  setValue(form, 'experience_level', skill.experience_level);
+  setValue(form, 'image_url', skill.image_url);
 
-  byId('skill-editor-title').textContent = 'Edit skill';
-  byId('skill-editor').hidden = false;
-  byId('skill-editor').scrollIntoView({ behavior: 'smooth' });
+  if (form.elements.is_visible) {
+    form.elements.is_visible.checked =
+      !(Number(skill.is_visible) === 0 || skill.is_visible === false);
+  }
+
+  if (byId('skill-editor-title')) {
+    byId('skill-editor-title').textContent = 'Edit skill';
+  }
+
+  if (byId('skill-editor')) {
+    byId('skill-editor').hidden = false;
+    byId('skill-editor').scrollIntoView({ behavior: 'smooth' });
+  }
 }
 
 if (byId('new-skill')) {
@@ -514,17 +837,24 @@ if (byId('new-skill')) {
     const form = byId('skill-form');
     if (form) {
       form.reset();
-      form.elements.is_visible.checked = true;
+      if (form.elements.is_visible) {
+        form.elements.is_visible.checked = true;
+      }
     }
 
-    byId('skill-editor-title').textContent = 'New skill';
-    byId('skill-editor').hidden = false;
+    if (byId('skill-editor-title')) {
+      byId('skill-editor-title').textContent = 'New skill';
+    }
+
+    if (byId('skill-editor')) {
+      byId('skill-editor').hidden = false;
+    }
   });
 }
 
 if (byId('cancel-skill')) {
   byId('cancel-skill').addEventListener('click', () => {
-    byId('skill-editor').hidden = true;
+    if (byId('skill-editor')) byId('skill-editor').hidden = true;
   });
 }
 
