@@ -12,7 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/about-photo.css">
   <script src="/site.js" defer></script>
+  <script src="/about-photo.js" defer></script>
 </head>
 <body id="top">
   <header class="site-header">
@@ -56,8 +58,7 @@
       <div class="section-wrap about-inner">
         <div class="about-visual">
           <span class="section-kicker">02 — A LITTLE ABOUT ME</span>
-          <div class="about-photo">
-            <img id="about-photo-image" alt="Portrait of Daniel" hidden>
+          <div class="about-photo-frame" id="about-photo-frame">
             <div class="about-photo-placeholder" id="about-photo-placeholder">DB<span>.</span></div>
           </div>
         </div>
@@ -101,42 +102,5 @@
     <span>DESIGNED WITH INTENTION.</span>
     <a href="/admin">ADMIN</a>
   </footer>
-
-  <script>
-    (async function () {
-      try {
-        const response = await fetch('/api/content', { cache: 'no-store' });
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const settings = data.settings || {};
-
-        const photo = document.getElementById('about-photo-image');
-        const placeholder = document.getElementById('about-photo-placeholder');
-
-        if (settings.about_photo_url && photo) {
-          photo.src = settings.about_photo_url;
-          photo.hidden = false;
-          if (placeholder) placeholder.hidden = true;
-        }
-
-        const available = settings.availability_status !== 'not_accepting';
-        const label = document.getElementById('availability-text');
-        const dot = document.getElementById('availability-dot');
-
-        if (label) {
-          label.textContent = available
-            ? 'Available for opportunities'
-            : 'Not accepting new clients';
-        }
-
-        if (dot) {
-          dot.classList.toggle('status-dot-unavailable', !available);
-        }
-      } catch (error) {
-        console.error('Could not load About photo or availability setting:', error);
-      }
-    })();
-  </script>
 </body>
 </html>
