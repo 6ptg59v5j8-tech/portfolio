@@ -176,11 +176,98 @@ function showImagePreview(previewId, url) {
   image.src = url;
   image.alt = 'Image preview';
   image.style.maxWidth = '180px';
-  image.style.maxHeight = '100px';
+  image.style.maxHeight = '120px';
   image.style.objectFit = 'contain';
 
   preview.append(image);
   preview.hidden = false;
+}
+
+// ABOUT SETTINGS CONTROLS
+function addAboutSettings(form, settings = {}) {
+  if (!form || byId('about-settings-editor')) return;
+
+  const section = document.createElement('section');
+  section.id = 'about-settings-editor';
+  section.style.cssText =
+    'margin-top:28px;padding-top:24px;border-top:1px solid #ddd;';
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'About section';
+
+  const photoLabel = document.createElement('label');
+  photoLabel.textContent = 'About photo';
+  photoLabel.style.display = 'block';
+
+  const photoInput = document.createElement('input');
+  photoInput.type = 'file';
+  photoInput.id = 'about_photo_file';
+  photoInput.accept = 'image/*';
+  photoInput.style.display = 'block';
+  photoInput.style.margin = '10px 0';
+
+  const photoUrl = document.createElement('input');
+  photoUrl.type = 'hidden';
+  photoUrl.name = 'about_photo_url';
+  photoUrl.value = settings.about_photo_url || '';
+
+  const preview = document.createElement('div');
+  preview.id = 'about-photo-admin-preview';
+
+  const availabilityLabel = document.createElement('label');
+  availabilityLabel.textContent = 'Availability status';
+  availabilityLabel.style.display = 'block';
+  availabilityLabel.style.marginTop = '24px';
+
+  const availability = document.createElement('select');
+  availability.name = 'availability_status';
+  availability.id = 'availability_status';
+  availability.style.display = 'block';
+  availability.style.marginTop = '8px';
+
+  const availableOption = document.createElement('option');
+  availableOption.value = 'available';
+  availableOption.textContent = 'Available for opportunities';
+
+  const unavailableOption = document.createElement('option');
+  unavailableOption.value = 'not_accepting';
+  unavailableOption.textContent = 'Not accepting new clients';
+
+  availability.append(availableOption, unavailableOption);
+  availability.value = settings.availability_status === 'not_accepting'
+    ? 'not_accepting'
+    : 'available';
+
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files?.[0];
+    if (!file) return;
+
+    const temporaryUrl = URL.createObjectURL(file);
+    showImagePreview('about-photo-admin-preview', temporaryUrl);
+  });
+
+  photoLabel.append(photoInput);
+  section.append(
+    heading,
+    photoLabel,
+    photoUrl,
+    preview,
+    availabilityLabel,
+    availability
+  );
+
+  const submitButton = form.querySelector('[type="submit"]');
+
+  if (submitButton) {
+    form.insertBefore(section, submitButton);
+  } else {
+    form.append(section);
+  }
+
+  showImagePreview(
+    'about-photo-admin-preview',
+    settings.about_photo_url || ''
+  );
 }
 
 // SITE CONTENT AND BRANDING
@@ -190,6 +277,8 @@ async function loadContent() {
     const form = byId('content-form');
 
     if (form) {
+      addAboutSettings(form, data.settings || {});
+
       Object.entries(data.settings || {}).forEach(([key, value]) => {
         setValue(form, key, value);
       });
@@ -202,6 +291,25 @@ async function loadContent() {
       showImagePreview(
         'favicon-preview',
         data.settings?.favicon_url || ''
+      );
+
+      setValue(
+        form,
+        'about_photo_url',
+        data.settings?.about_photo_url || ''
+      );
+
+      const availability = byId('availability_status');
+      if (availability) {
+        availability.value =
+          data.settings?.availability_status === 'not_accepting'
+            ? 'not_accepting'
+            : 'available';
+      }
+
+      showImagePreview(
+        'about-photo-admin-preview',
+        data.settings?.about_photo_url || ''
       );
     }
 
@@ -283,6 +391,7 @@ if (byId('add-social')) {
   });
 });
 
+// SAVE SITE CONTENT
 if (byId('content-form')) {
   byId('content-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -299,9 +408,9 @@ if (byId('content-form')) {
     try {
       status('content-status', 'Saving site content...');
 
-      // Upload logo and favicon files if selected.
       const logoFile = form.elements.logo_file?.files?.[0];
       const faviconFile = form.elements.favicon_file?.files?.[0];
+      const aboutPhotoFile = form.elements.about_photo_file?.files?.[0];
 
       if (logoFile?.size) {
         settings.logo_url = await uploadImage(logoFile);
@@ -313,6 +422,19 @@ if (byId('content-form')) {
         setValue(form, 'favicon_url', settings.favicon_url);
       }
 
+      if (aboutPhotoFile?.size) {
+        settings.about_photo_url = await uploadImage(aboutPhotoFile);
+        setValue(form, 'about_photo_url', settings.about_photo_url);
+      }
+
+      settings.about_photo_url =
+        settings.about_photo_url ||
+        form.elements.about_photo_url?.value ||
+        '';
+
+      settings.availability_status =
+        form.elements.availability_status?.value || 'available';
+
       await api('content', {
         method: 'PUT',
         body: JSON.stringify({ settings, socials })
@@ -320,6 +442,10 @@ if (byId('content-form')) {
 
       showImagePreview('logo-preview', settings.logo_url || '');
       showImagePreview('favicon-preview', settings.favicon_url || '');
+      showImagePreview(
+        'about-photo-admin-preview',
+        settings.about_photo_url || ''
+      );
 
       status('content-status', 'Saved - your live website has been updated.');
     } catch (error) {
@@ -723,7 +849,6 @@ if (byId('project-form')) {
       status('project-status', 'Production saved.');
       await loadProjects();
 
-      // Keep the saved project selected so its gallery can be managed.
       const matchingProject = projects.find(project => project.id === editingId);
       if (matchingProject) {
         editProject(matchingProject);
