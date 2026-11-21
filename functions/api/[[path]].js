@@ -195,12 +195,35 @@ async function content(env) {
   return { settings: s, socials, projects: projects.results };
 }
 
+
 async function getProjectBySlug(env, slug) {
-  const project = await env.DB.prepare(
+  let project = await env.DB.prepare(
     `SELECT id,title,category,description,image_url,project_url,
             project_date,sort_order,slug,venue,role,credits
      FROM projects WHERE slug=? LIMIT 1`
   ).bind(slug).first();
+
+  // Support older projects that were created before slugs were added.
+  if (!project) {
+    const rows = await env.DB.prepare(
+      `SELECT id,title,slug FROM projects
+       WHERE slug IS NULL OR slug=''`
+    ).all();
+
+    for (const row of rows.results) {
+      const generatedSlug = await uniqueProjectSlug(env, row.title, row.id);
+
+      await env.DB.prepare(
+        'UPDATE projects SET slug=? WHERE id=? AND (slug IS NULL OR slug=\'\')'
+      ).bind(generatedSlug, row.id).run();
+    }
+
+    project = await env.DB.prepare(
+      `SELECT id,title,category,description,image_url,project_url,
+              project_date,sort_order,slug,venue,role,credits
+       FROM projects WHERE slug=? LIMIT 1`
+    ).bind(slug).first();
+  }
 
   if (!project) return null;
 
@@ -214,16 +237,14 @@ async function getProjectBySlug(env, slug) {
   const previous = await env.DB.prepare(
     `SELECT id,title,slug
      FROM projects
-     WHERE slug IS NOT NULL AND slug!=''
-       AND (sort_order < ? OR (sort_order = ? AND id < ?))
+     WHERE (sort_order < ? OR (sort_order = ? AND id < ?))
      ORDER BY sort_order DESC,id DESC LIMIT 1`
   ).bind(project.sort_order, project.sort_order, project.id).first();
 
   const next = await env.DB.prepare(
     `SELECT id,title,slug
      FROM projects
-     WHERE slug IS NOT NULL AND slug!=''
-       AND (sort_order > ? OR (sort_order = ? AND id > ?))
+     WHERE (sort_order > ? OR (sort_order = ? AND id > ?))
      ORDER BY sort_order ASC,id ASC LIMIT 1`
   ).bind(project.sort_order, project.sort_order, project.id).first();
 
@@ -234,6 +255,7 @@ async function getProjectBySlug(env, slug) {
     next
   };
 }
+
 
 async function ensureConfiguredAdmin(env) {
   const email = typeof env.ADMIN_EMAIL === 'string'
