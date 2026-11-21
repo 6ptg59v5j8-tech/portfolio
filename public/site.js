@@ -1,255 +1,332 @@
-const $ = (id) => document.getElementById(id);
+(() => {
+  "use strict";
 
-const safeUrl = (value) => {
-  try {
-    const u = new URL(value, location.origin);
-    return ['https:', 'http:'].includes(u.protocol) ? u.href : '';
-  } catch {
-    return '';
-  }
-};
+  const $ = (selector, root = document) => root.querySelector(selector);
 
-function text(node, value) {
-  if (node) node.textContent = value ?? '';
-}
-
-function formatProjectDate(value) {
-  if (!value) return '';
-  const date = new Date(value + 'T00:00:00');
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en-GB', {
-    month: 'long',
-    year: 'numeric'
-  }).format(date);
-}
-
-function renderProjects(projects) {
-  const grid = $('project-grid');
-  if (!grid) return;
-
-  grid.replaceChildren();
-
-  if (!projects.length) {
-    const empty = document.createElement('p');
-    empty.className = 'skills-empty';
-    empty.textContent = 'Projects will appear here soon.';
-    grid.append(empty);
-    return;
-  }
-
-  projects.forEach((p, i) => {
-    const card = document.createElement('article');
-    card.className = 'project-card';
-
-    const art = document.createElement('div');
-    art.className = 'project-art';
-
-    const imageUrl = safeUrl(p.image_url);
-    if (imageUrl) {
-      const img = document.createElement('img');
-      img.src = imageUrl;
-      img.alt = p.title || 'Project image';
-      img.loading = 'lazy';
-      art.append(img);
-    } else {
-      art.classList.add(['art-one', 'art-two', 'art-three'][i % 3]);
-      const number = document.createElement('span');
-      number.textContent = String(i + 1).padStart(2, '0');
-      const motif = document.createElement('i');
-      motif.textContent = p.title || 'Selected work';
-      art.append(number, motif);
+  function safeUrl(value) {
+    if (!value || typeof value !== "string") return "";
+    try {
+      const url = new URL(value, window.location.origin);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+      return url.href;
+    } catch {
+      return "";
     }
-
-    const meta = document.createElement('div');
-    meta.className = 'project-meta';
-
-    const info = document.createElement('div');
-    const title = document.createElement('h3');
-    title.textContent = p.title || 'Untitled project';
-
-    const category = document.createElement('p');
-    const date = formatProjectDate(p.project_date);
-    category.textContent = [p.category || 'Selected work', date]
-      .filter(Boolean).join(' · ');
-
-    info.append(title, category);
-
-    const arrow = document.createElement('span');
-    arrow.textContent = '↗';
-    meta.append(info, arrow);
-    card.append(art, meta);
-
-    const url = safeUrl(p.project_url);
-    if (url) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.className = 'project-link';
-      a.setAttribute('aria-label', `View ${p.title || 'project'}`);
-      a.append(card);
-      grid.append(a);
-    } else {
-      grid.append(card);
-    }
-  });
-}
-
-function renderSkills(skills) {
-  const root = $('skills-groups');
-  if (!root) return;
-
-  root.replaceChildren();
-
-  const categories = ['Lighting', 'Sound', 'Technical', 'Production'];
-  const grouped = Object.fromEntries(
-    categories.map(category => [
-      category,
-      skills.filter(skill =>
-        String(skill.category || '').toLowerCase() === category.toLowerCase()
-      )
-    ])
-  );
-
-  const hasSkills = categories.some(category => grouped[category].length);
-
-  if (!hasSkills) {
-    const empty = document.createElement('p');
-    empty.className = 'skills-empty';
-    empty.textContent = 'Skills will appear here soon.';
-    root.append(empty);
-    return;
   }
 
-  categories.forEach(category => {
-    const items = grouped[category];
-    if (!items.length) return;
+  function text(value, fallback = "") {
+    return typeof value === "string" ? value : (value == null ? fallback : String(value));
+  }
 
-    const group = document.createElement('section');
-    group.className = 'skill-category';
+  function formatProjectDate(value) {
+    if (!value) return "";
+    const raw = String(value).trim();
+    const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    }).format(date);
+  }
 
-    const heading = document.createElement('h3');
-    heading.className = 'skill-category-title';
-    heading.textContent = category;
+  function getSettings(data) {
+    const source = data?.settings || data?.content || data || {};
+    if (Array.isArray(source)) {
+      return Object.fromEntries(source.map(item => [item.key, item.value]));
+    }
+    return source;
+  }
 
-    const grid = document.createElement('div');
-    grid.className = 'skill-card-grid';
+  function applyBranding(settings) {
+    const logoUrl = safeUrl(settings.logo_url);
+    const faviconUrl = safeUrl(settings.favicon_url);
+    const wordmark = $(".wordmark");
+    const footerBrand = $(".footer-brand");
 
-    items.forEach(skill => {
-      const card = document.createElement('article');
-      card.className = 'skill-card';
+    [wordmark, footerBrand].forEach((element, index) => {
+      if (!element) return;
 
-      if (skill.image_url) {
-        const imageUrl = safeUrl(skill.image_url);
-        if (imageUrl) {
-          const imageWrap = document.createElement('div');
-          imageWrap.className = 'skill-card-image';
-
-          const image = document.createElement('img');
-          image.src = imageUrl;
-          image.alt = skill.name ? `${skill.name} image` : 'Skill image';
-          image.loading = 'lazy';
-
-          imageWrap.append(image);
-          card.append(imageWrap);
+      if (logoUrl) {
+        const image = document.createElement("img");
+        image.src = logoUrl;
+        image.alt = "Daniel Burden";
+        image.className = index === 0 ? "header-logo-image" : "footer-logo-image";
+        element.replaceChildren(image);
+        element.classList.add("has-custom-logo");
+      } else {
+        element.classList.remove("has-custom-logo");
+        if (index === 0) {
+          element.innerHTML = '<span class="wordmark-text">DB<span class="wordmark-dot">.</span></span>';
+        } else {
+          element.innerHTML = '<span class="footer-brand-text">DB<span>.</span></span>';
         }
       }
+    });
 
-      const content = document.createElement('div');
-      content.className = 'skill-card-content';
+    const favicon = $("#site-favicon");
+    if (favicon && faviconUrl) favicon.href = faviconUrl;
+  }
 
-      const name = document.createElement('h4');
-      name.textContent = skill.name || 'Skill';
+  function renderProjects(projects) {
+    const grid = $("#project-grid");
+    if (!grid) return;
 
-      content.append(name);
+    grid.replaceChildren();
 
-      if (skill.description) {
-        const description = document.createElement('p');
-        description.textContent = skill.description;
-        content.append(description);
+    if (!Array.isArray(projects) || projects.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "skills-empty";
+      empty.textContent = "Projects will appear here soon.";
+      grid.append(empty);
+      return;
+    }
+
+    projects.forEach((project, index) => {
+      const slug = text(project.slug).trim();
+      const projectUrl = slug
+        ? `/projects/${encodeURIComponent(slug)}`
+        : safeUrl(project.project_url);
+
+      const card = document.createElement("article");
+      card.className = "project-card";
+
+      const art = document.createElement("div");
+      art.className = `project-art ${["art-one", "art-two", "art-three"][index % 3]}`;
+
+      const imageUrl = safeUrl(project.image_url);
+      if (imageUrl) {
+        const image = document.createElement("img");
+        image.src = imageUrl;
+        image.alt = text(project.title, "Project image");
+        image.loading = "lazy";
+        art.append(image);
+      } else {
+        const number = document.createElement("span");
+        number.textContent = String(index + 1).padStart(2, "0");
+        const artworkText = document.createElement("i");
+        artworkText.textContent = text(project.title, "Selected work");
+        art.append(number, artworkText);
       }
 
-      if (skill.experience_level) {
-        const level = document.createElement('span');
-        level.className = 'skill-level';
-        level.textContent = skill.experience_level;
-        content.append(level);
+      if (projectUrl) {
+        const link = document.createElement("a");
+        link.className = "project-card-link";
+        link.href = projectUrl;
+        link.setAttribute("aria-label", `Find out more about ${text(project.title, "this project")}`);
+
+        const prompt = document.createElement("span");
+        prompt.className = "project-card-prompt";
+        prompt.textContent = "Find out more";
+        link.append(prompt);
+        art.append(link);
       }
 
-      card.append(content);
+      const meta = document.createElement("div");
+      meta.className = "project-meta";
+
+      const details = document.createElement("div");
+      const heading = document.createElement("h3");
+      heading.textContent = text(project.title, "Untitled project");
+
+      const description = document.createElement("p");
+      const category = text(project.category);
+      const date = formatProjectDate(project.project_date);
+      description.textContent = [category, date].filter(Boolean).join(" / ");
+
+      details.append(heading, description);
+
+      const arrow = document.createElement("span");
+      arrow.textContent = projectUrl ? "↗" : "—";
+      meta.append(details, arrow);
+
+      if (projectUrl) {
+        const cardLink = document.createElement("a");
+        cardLink.className = "project-meta-link";
+        cardLink.href = projectUrl;
+        cardLink.setAttribute("aria-label", `View ${text(project.title, "project")}`);
+        cardLink.append(meta);
+        card.append(art, cardLink);
+      } else {
+        card.append(art, meta);
+      }
+
       grid.append(card);
     });
+  }
 
-    group.append(heading, grid);
-    root.append(group);
-  });
-}
+  function renderSkills(skills) {
+    const container = $("#skills-groups");
+    if (!container) return;
 
-async function loadSite() {
-  try {
-    const res = await fetch('/api/content', {
-      headers: { 'Accept': 'application/json' }
-    });
+    container.replaceChildren();
 
-    if (!res.ok) return;
-
-    const data = await res.json();
-    const s = data.settings || {};
-
-    text($('eyebrow'), s.eyebrow);
-    text($('hero-title'), s.hero_title);
-    text($('hero-intro'), s.hero_intro);
-    text($('about-title'), s.about_title);
-    text($('about-text'), s.about_text);
-    text($('location'), s.location);
-    text($('contact-title'), s.contact_title);
-    text($('contact-text'), s.contact_text);
-
-    const email = $('email-link');
-    if (email && s.email) {
-      email.href = 'mailto:' + s.email;
-      email.textContent = s.email + ' ↗';
+    if (!Array.isArray(skills) || skills.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "skills-empty";
+      empty.textContent = "Skills will appear here soon.";
+      container.append(empty);
+      return;
     }
 
-    const socials = $('social-links');
-    if (socials) {
-      socials.replaceChildren();
+    const categories = ["Lighting", "Sound", "Technical", "Production"];
+    const grouped = new Map(categories.map(category => [category, []]));
 
-      (data.socials || []).forEach(item => {
-        const url = safeUrl(item.url);
-        if (!url) return;
+    skills.forEach(skill => {
+      const category = categories.find(item =>
+        item.toLowerCase() === text(skill.category).toLowerCase()
+      ) || "Technical";
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = item.label;
-        socials.append(a);
+      grouped.get(category).push(skill);
+    });
+
+    categories.forEach(category => {
+      const items = grouped.get(category);
+      if (!items.length) return;
+
+      const section = document.createElement("section");
+      section.className = "skill-category";
+
+      const heading = document.createElement("h3");
+      heading.className = "skill-category-title";
+      heading.textContent = category;
+
+      const cards = document.createElement("div");
+      cards.className = "skill-card-grid";
+
+      items.forEach(skill => {
+        const card = document.createElement("article");
+        card.className = "skill-card";
+
+        const imageWrap = document.createElement("div");
+        imageWrap.className = "skill-card-image";
+
+        const imageUrl = safeUrl(skill.image_url);
+        if (imageUrl) {
+          const image = document.createElement("img");
+          image.src = imageUrl;
+          image.alt = text(skill.name, "Skill");
+          image.loading = "lazy";
+          imageWrap.append(image);
+        }
+
+        const content = document.createElement("div");
+        content.className = "skill-card-content";
+
+        const title = document.createElement("h4");
+        title.textContent = text(skill.name, "Skill");
+
+        const description = document.createElement("p");
+        description.textContent = text(skill.description);
+
+        content.append(title);
+        if (skill.description) content.append(description);
+
+        if (skill.level) {
+          const level = document.createElement("span");
+          level.className = "skill-level";
+          level.textContent = text(skill.level);
+          content.append(level);
+        }
+
+        card.append(imageWrap, content);
+        cards.append(card);
       });
-    }
 
-    renderProjects(data.projects || []);
-  } catch (e) {
-    console.warn('Portfolio content could not be loaded.', e);
+      section.append(heading, cards);
+      container.append(section);
+    });
   }
-}
 
-async function loadPublicSkills() {
-  try {
-    const res = await fetch('/api/skills', {
-      headers: { 'Accept': 'application/json' }
+  function applyContent(data) {
+    const settings = getSettings(data);
+    applyBranding(settings);
+
+    const fields = [
+      ["eyebrow", "eyebrow"],
+      ["hero-title", "hero_title"],
+      ["hero-intro", "hero_intro"],
+      ["about-title", "about_title"],
+      ["about-text", "about_text"],
+      ["location", "location"],
+      ["contact-title", "contact_title"],
+      ["contact-text", "contact_text"]
+    ];
+
+    fields.forEach(([elementId, key]) => {
+      const element = document.getElementById(elementId);
+      if (element && settings[key]) element.textContent = settings[key];
     });
 
-    if (!res.ok) throw new Error('Could not load skills.');
+    const email = text(settings.email || settings.contact_email);
+    const emailLink = $("#email-link");
+    if (emailLink && email) {
+      emailLink.href = `mailto:${email}`;
+      emailLink.textContent = `${email} `;
+      const arrow = document.createElement("span");
+      arrow.textContent = "↗";
+      emailLink.append(arrow);
+    }
 
-    const data = await res.json();
-    renderSkills(data.skills || []);
-  } catch (error) {
-    console.warn('Portfolio skills could not be loaded.', error);
+    const socials = settings.socials || data?.socials || [];
+    const socialContainer = $("#social-links");
+    if (socialContainer) {
+      socialContainer.replaceChildren();
+
+      if (Array.isArray(socials)) {
+        socials.forEach(item => {
+          const url = safeUrl(item.url);
+          if (!url) return;
+
+          const link = document.createElement("a");
+          link.href = url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = text(item.label || item.name, "Social");
+          socialContainer.append(link);
+        });
+      }
+    }
+
+    if (Array.isArray(data?.projects)) renderProjects(data.projects);
   }
-}
 
-text($('year'), new Date().getFullYear());
-loadSite();
-loadPublicSkills();
+  async function loadSite() {
+    try {
+      const response = await fetch("/api/content", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load site content.");
+      const data = await response.json();
+      applyContent(data);
+    } catch (error) {
+      console.error("Site content:", error);
+    }
+
+    try {
+      const response = await fetch("/api/projects", { cache: "no-store" });
+      if (response.ok) {
+        const projects = await response.json();
+        if (Array.isArray(projects)) renderProjects(projects);
+        else if (Array.isArray(projects.projects)) renderProjects(projects.projects);
+      }
+    } catch (error) {
+      console.error("Projects:", error);
+    }
+  }
+
+  async function loadPublicSkills() {
+    try {
+      const response = await fetch("/api/skills", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load skills.");
+      const data = await response.json();
+      renderSkills(Array.isArray(data) ? data : data.skills || []);
+    } catch (error) {
+      console.error("Skills:", error);
+    }
+  }
+
+  const year = $("#year");
+  if (year) year.textContent = new Date().getFullYear();
+
+  loadSite();
+  loadPublicSkills();
+})();
