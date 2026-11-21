@@ -1,0 +1,117 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4f0">
+  <meta name="description" content="The personal portfolio of Daniel Burden — selected work, skills and contact.">
+  <title>Daniel Burden — Portfolio</title>
+  <link id="site-favicon" rel="icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/about-photo.css">
+  <link rel="stylesheet" href="/announcement.css">
+  <script src="/site.js" defer></script>
+  <script src="/about-photo.js" defer></script>
+  <script src="/announcement.js" defer></script>
+</head>
+<body id="top">
+  <div id="announcement-banner" class="announcement-banner" hidden>
+    <div class="announcement-track" id="announcement-track"></div>
+  </div>
+
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="Daniel Burden home">
+      <span class="wordmark-text">DB<span class="wordmark-dot">.</span></span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#skills">Skills</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a class="header-availability" href="#contact">
+      <span class="status-dot" id="availability-dot"></span>
+      <span id="availability-text">Available for opportunities</span>
+    </a>
+  </header>
+
+  <main>
+    <section class="hero section-wrap">
+      <div class="eyebrow"><span class="eyebrow-line"></span><span id="eyebrow">Lighting · Sound · Production Arts</span></div>
+      <h1 id="hero-title">Thoughtful work.<br><span class="muted-title">Made with purpose.</span></h1>
+      <div class="hero-bottom">
+        <p id="hero-intro">A collection of selected projects, ideas and things I care about.</p>
+        <a class="round-link" href="#work" aria-label="Scroll to selected work"><span>↓</span></a>
+      </div>
+      <div class="hero-index"><span>PORTFOLIO — 2026</span><span>01 / 03</span></div>
+    </section>
+
+    <section id="work" class="work-section section-wrap">
+      <div class="section-heading">
+        <div><span class="section-kicker">01 — SELECTED WORK</span><h2>Selected<br>productions<span class="accent">.</span></h2></div>
+        <p class="section-note">A selection of productions and the work behind them.</p>
+      </div>
+      <div id="project-grid" class="project-grid" aria-live="polite">
+        <p class="skills-empty">Loading projects…</p>
+      </div>
+    </section>
+
+    <section id="about" class="about-section">
+      <div class="section-wrap about-inner">
+        <div class="about-visual">
+          <span class="section-kicker">02 — A LITTLE ABOUT ME</span>
+          <div class="about-photo-frame" id="about-photo-frame">
+            <div class="about-photo-placeholder" id="about-photo-placeholder">DB<span>.</span></div>
+          </div>
+        </div>
+        <div class="about-copy">
+          <a id="about-status-button" class="about-status-button" href="#" hidden>
+            <span class="about-status-label"></span>
+            <span class="about-status-message"></span>
+            <span class="about-status-arrow" aria-hidden="true">→</span>
+          </a>
+          <h2 id="about-title">A little about me</h2>
+          <p id="about-text">I’m Daniel — a curious, detail-oriented person interested in creating useful, considered digital experiences. This is a space to share my work, interests and what I’m learning.</p>
+          <div class="about-location"><span class="status-dot"></span><span id="location">United Kingdom</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills" class="skills-section section-wrap">
+      <div class="section-heading">
+        <div><span class="section-kicker">03 — WHAT I DO</span><h2>Skills &amp;<br>technical experience<span class="accent">.</span></h2></div>
+        <p class="section-note">The skills and knowledge I bring<br>to productions and live events.</p>
+      </div>
+      <div id="skills-groups" class="skills-groups" aria-live="polite">
+        <p class="skills-empty">Skills will appear here soon.</p>
+      </div>
+    </section>
+
+    <section id="contact" class="contact-section section-wrap">
+      <span class="section-kicker">04 — THE NEXT THING</span>
+      <div class="contact-main">
+        <h2 id="contact-title">Get in<br>touch<span class="accent">?</span></h2>
+        <div>
+          <p id="contact-text">For questions about my work or future productions, feel free to get in touch.</p>
+          <a id="email-link" class="email-link" href="mailto:hello@example.com">hello@example.com <span>↗</span></a>
+        </div>
+      </div>
+      <div class="contact-footer">
+        <span>© <span id="year">2026</span> DANIEL BURDEN</span>
+        <div id="social-links" class="social-links"></div>
+        <a href="#top">BACK TO TOP ↑</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="footer-brand" href="/" aria-label="Daniel Burden home"><span class="footer-brand-text">DB<span>.</span></span></a>
+    <span>LIGHTING · SOUND · PRODUCTION ARTS</span>
+    <a href="/admin">ADMIN</a>
+  </footer>
+</body>
+</html>
