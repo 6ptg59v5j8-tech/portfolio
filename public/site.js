@@ -31,17 +31,9 @@
   }
 
   function projectPath(project) {
-    // Use the database slug whenever one exists.
     const slug = text(project.slug).trim();
-
-    // Fallback for older projects that do not yet have a saved slug.
-    const fallbackSlug = makeSlug(project.title);
-
-    const finalSlug = slug || fallbackSlug;
-
-    return finalSlug
-      ? `/projects/${encodeURIComponent(finalSlug)}`
-      : "";
+    const finalSlug = slug || makeSlug(project.title);
+    return finalSlug ? `/projects/${encodeURIComponent(finalSlug)}` : "";
   }
 
   function formatProjectDate(value) {
@@ -123,8 +115,6 @@
 
     projects.forEach((project, index) => {
       const internalUrl = projectPath(project);
-
-      // All productions should open their own detail page.
       const projectUrl = internalUrl || safeUrl(project.project_url);
 
       const card = document.createElement("article");
@@ -225,20 +215,45 @@
       return;
     }
 
-    const categories = ["Lighting", "Sound", "Technical", "Production"];
-    const grouped = new Map(categories.map(category => [category, []]));
+    const preferredOrder = [
+      "Lighting",
+      "Sound",
+      "Technical",
+      "Production"
+    ];
+
+    const grouped = new Map();
 
     skills.forEach(skill => {
-      const category = categories.find(item =>
-        item.toLowerCase() === text(skill.category).toLowerCase()
-      ) || "Technical";
+      const category = text(skill.category, "Other").trim() || "Other";
+      const existingKey = [...grouped.keys()].find(
+        key => key.toLowerCase() === category.toLowerCase()
+      );
 
-      grouped.get(category).push(skill);
+      const key = existingKey || category;
+
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(skill);
     });
+
+    const categories = [
+      ...preferredOrder.filter(category =>
+        [...grouped.keys()].some(
+          key => key.toLowerCase() === category.toLowerCase()
+        )
+      ),
+      ...[...grouped.keys()]
+        .filter(category =>
+          !preferredOrder.some(
+            preferred => preferred.toLowerCase() === category.toLowerCase()
+          )
+        )
+        .sort((a, b) => a.localeCompare(b))
+    ];
 
     categories.forEach(category => {
       const items = grouped.get(category);
-      if (!items.length) return;
+      if (!items || !items.length) return;
 
       const section = document.createElement("section");
       section.className = "skill-category";
@@ -254,40 +269,31 @@
         const card = document.createElement("article");
         card.className = "skill-card";
 
-        const imageWrap = document.createElement("div");
-        imageWrap.className = "skill-card-image";
-
-        const imageUrl = safeUrl(skill.image_url);
-
-        if (imageUrl) {
-          const image = document.createElement("img");
-          image.src = imageUrl;
-          image.alt = text(skill.name, "Skill");
-          image.loading = "lazy";
-          imageWrap.append(image);
-        }
-
         const content = document.createElement("div");
         content.className = "skill-card-content";
 
         const title = document.createElement("h4");
         title.textContent = text(skill.name, "Skill");
-
-        const description = document.createElement("p");
-        description.textContent = text(skill.description);
-
         content.append(title);
 
-        if (skill.description) content.append(description);
+        const descriptionText = text(skill.description).trim();
 
-        if (skill.level) {
+        if (descriptionText) {
+          const description = document.createElement("p");
+          description.textContent = descriptionText;
+          content.append(description);
+        }
+
+        const levelText = text(skill.level).trim();
+
+        if (levelText) {
           const level = document.createElement("span");
           level.className = "skill-level";
-          level.textContent = text(skill.level);
+          level.textContent = levelText;
           content.append(level);
         }
 
-        card.append(imageWrap, content);
+        card.append(content);
         cards.append(card);
       });
 
