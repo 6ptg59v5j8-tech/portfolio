@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap'); t
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 :root{--paper:#f5f4f0;--ink:#20211f;--muted:#85857e;--line:#d9d8d1;--accent:#c6f36b;--sans:'Manrope',Arial,sans-serif;--mono:'DM Mono',monospace}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
@@ -197,4 +197,129 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
 }
 @media(max-width:700px){
   .about-status-button{margin-bottom:19px;max-width:100%}
+}
+
+/* Skills / Education switch — restrained, using the original site palette and fonts. */
+.skills-education-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:240px;height:38px;padding:3px;margin:0 0 30px;border:1px solid var(--line);border-radius:999px;background:#eae9e3;isolation:isolate}
+.skills-education-thumb{position:absolute;z-index:0;top:3px;left:3px;width:calc(50% - 3px);height:30px;border:1px solid var(--line);border-radius:999px;background:var(--paper);transform:translateX(0);transition:transform .25s ease}
+.skills-education-option{position:relative;z-index:1;min-width:0;height:30px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:10px var(--mono);letter-spacing:.055em;text-transform:uppercase;cursor:pointer;transition:color .2s ease}
+.skills-education-option.is-active{color:var(--ink)}
+.skills-education-option:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.skills-education-panel[hidden]{display:none}
+.skills-education-panel.panel-enter{animation:skillsEducationEnter .18s ease both}
+@keyframes skillsEducationEnter{from{opacity:.65}to{opacity:1}}
+.education-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:900px){.education-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.skills-education-switch{margin-bottom:24px}}
+@media(max-width:380px){.education-list{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.skills-education-thumb,.skills-education-option{transition:none}.skills-education-panel.panel-enter{animation:none}}
+
+
+/* Project links: keep the original lime accent and make the link reliably clickable. */
+.project-art {
+  position: relative;
+  isolation: isolate;
+}
+
+.project-art > img,
+.project-art > span,
+.project-art > i {
+  pointer-events: none;
+}
+
+.project-card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #20211f !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.project-card-prompt {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  border: 1px solid #c6f36b;
+  border-radius: 0;
+  background: #c6f36b !important;
+  color: #20211f !important;
+  font-family: 'Manrope', Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .015em;
+  text-decoration: none !important;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.project-card:hover .project-card-prompt,
+.project-card:focus-within .project-card-prompt {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.project-meta-link {
+  display: block;
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+.project-meta-link:hover .project-meta h3 {
+  color: #08679f;
+}
+
+.project-card-link:focus-visible {
+  outline: 2px solid #08679f;
+  outline-offset: -5px;
+}
+
+.project-card-link:focus-visible .project-card-prompt {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Portrait frame: keep the original dimensions and ensure the image fills it. */
+#about-photo-frame {
+  position: relative;
+  overflow: hidden;
+  background: #d9d8d0;
+}
+
+#about-photo-frame > .about-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+#about-photo-placeholder[hidden] {
+  display: none !important;
+}
+
+@media (hover: none) {
+  .project-card-prompt {
+    opacity: 1;
+    transform: none;
+  }
+
+  .project-card:hover .project-art > img {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-card-prompt {
+    transition: none;
+  }
 }
