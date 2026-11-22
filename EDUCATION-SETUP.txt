@@ -1,0 +1,11 @@
+EDUCATION FEATURE — INSTALLATION
+
+1. Upload/commit the contents of this ZIP to the existing GitHub repository for the portfolio project. Keep the existing project and Cloudflare bindings.
+2. In Cloudflare Dashboard, open Workers & Pages > D1 > daniel-burden-db > Console. Select the production database.
+3. Open migrations/0001_create_education.sql from this package, copy its contents into the D1 Console, and execute it ONCE. This is an additive migration: it creates only the education table and index. It does not drop or alter existing tables.
+4. Wait for the portfolio deployment to finish, then open /admin and sign in. The Education tab will appear.
+5. Add/edit/hide education entries there. They will appear in the existing Skills/Education switch on the public homepage.
+
+IMPORTANT: Do not run schema.sql again. Do not create a new D1 database. Keep the existing DB and MEDIA bindings.
+
+The supplied code already contains the public Skills/Education switch and public education renderer; this update adds the missing admin interface and API.
