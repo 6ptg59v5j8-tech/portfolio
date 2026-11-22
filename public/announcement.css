@@ -1,0 +1,59 @@
+
+.announcement-banner {
+  width: 100%;
+  overflow: hidden;
+  padding: 12px 0;
+  background: #20211e;
+  color: #fff;
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.announcement-banner[hidden] {
+  display: none;
+}
+
+.announcement-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-width: 100%;
+  animation: announcement-scroll 30s linear infinite;
+}
+
+.announcement-track:hover {
+  animation-play-state: paused;
+}
+
+.announcement-item {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 0 38px;
+}
+
+.announcement-item::after {
+  content: "✳";
+  margin-left: 76px;
+  opacity: .7;
+}
+
+@keyframes announcement-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
