@@ -480,13 +480,33 @@
       const element = document.getElementById(elementId);
       if (element && settings[key]) {
         const value = cleanCopy(settings[key]);
-        if (elementId === "hero-title" && value.includes("|")) {
-          // "First line | Second line" keeps the lighter second line.
-          const [first, ...rest] = value.split("|");
-          const muted = document.createElement("span");
-          muted.className = "muted-title";
-          muted.textContent = rest.join("|").trim();
-          element.replaceChildren(document.createTextNode(first.trim()), document.createElement("br"), muted);
+        if (elementId === "hero-title") {
+          let heroLines = value.includes("|")
+            ? value.split("|").map(line => line.trim()).filter(Boolean)
+            : value.split(/(?<=[.!?])\\s+/).map(line => line.trim()).filter(Boolean);
+
+          // The three-part headline may also be entered without separators.
+          if (heroLines.length === 1 && /creative vision.*technical thinking.*planned execution/i.test(value)) {
+            heroLines = value.split(/\\s+(?=Technical thinking\\b|Planned execution\\b)/i).map(line => line.trim()).filter(Boolean);
+          }
+
+          if (heroLines.length > 1) {
+            const nodes = [];
+            heroLines.forEach((line, index) => {
+              if (index) nodes.push(document.createElement("br"));
+              if (index === 0) {
+                nodes.push(document.createTextNode(line));
+              } else {
+                const muted = document.createElement("span");
+                muted.className = "muted-title";
+                muted.textContent = line;
+                nodes.push(muted);
+              }
+            });
+            element.replaceChildren(...nodes);
+          } else {
+            element.textContent = value;
+          }
         } else {
           element.textContent = value;
         }
