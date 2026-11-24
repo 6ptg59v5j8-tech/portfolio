@@ -362,3 +362,23 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
     line-height: 1.08;
   }
 }
+
+/* Final hero headline fit: keep all three statements on exactly three lines. */
+.hero h1 {
+  font-size: clamp(38px, 5.7vw, 88px) !important;
+  line-height: 1.02;
+}
+
+.hero h1 .hero-title-line {
+  display: block;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .hero h1 {
+    font-size: clamp(25px, 7.1vw, 48px) !important;
+    line-height: 1.08;
+  }
+}
