@@ -491,17 +491,13 @@
           }
 
           if (heroLines.length > 1) {
-            const nodes = [];
-            heroLines.forEach((line, index) => {
-              if (index) nodes.push(document.createElement("br"));
-              if (index === 0) {
-                nodes.push(document.createTextNode(line));
-              } else {
-                const muted = document.createElement("span");
-                muted.className = "muted-title";
-                muted.textContent = line;
-                nodes.push(muted);
-              }
+            const nodes = heroLines.map((line, index) => {
+              const lineElement = document.createElement("span");
+              lineElement.className = index === 0
+                ? "hero-title-line"
+                : "hero-title-line muted-title";
+              lineElement.textContent = line;
+              return lineElement;
             });
             element.replaceChildren(...nodes);
           } else {
