@@ -342,3 +342,23 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
     line-height: 1.04;
   }
 }
+
+/* Each part of the three-line hero headline stays together on one line. */
+.hero h1 {
+  font-size: clamp(40px, 7.2vw, 104px);
+  line-height: 1;
+}
+
+.hero h1 .hero-title-line {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .hero h1 {
+    font-size: clamp(26px, 8vw, 54px);
+    line-height: 1.08;
+  }
+}
