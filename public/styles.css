@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
-:root{--paper:#f5f4f0;--ink:#20211f;--muted:#85857e;--line:#d9d8d1;--accent:#c6f36b;--sans:'Manrope',Arial,sans-serif;--mono:'DM Mono',monospace}
+:root{--paper:#f5f4f0;--ink:#20211f;--muted:#85857e;--line:#d9d8d1;--accent:#19345E;--sans:'Manrope',Arial,sans-serif;--mono:'DM Mono',monospace}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
@@ -8,7 +8,7 @@ button,input,textarea,select{font:inherit}
 img{max-width:100%}
 .site-header{height:82px;padding:0 6.2%;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:var(--paper);position:relative;z-index:5}
 .wordmark,.footer-brand{font-size:25px;font-weight:800;letter-spacing:-2px}
-.wordmark-dot,.footer-brand-text span{color:#08679f}
+.wordmark-dot,.footer-brand-text span{color:#19345E}
 .site-header nav{display:flex;gap:34px;margin-left:auto;margin-right:55px}
 .site-header nav a{font-size:11px;color:#66675f;transition:color .2s}
 .site-header nav a:hover{color:var(--ink)}
@@ -30,7 +30,7 @@ img{max-width:100%}
 .work-section{padding-top:125px;padding-bottom:130px}
 .section-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:48px}
 .section-heading h2{font-size:clamp(38px,5.4vw,72px);line-height:1.02;letter-spacing:-.075em;font-weight:600;margin:20px 0 0}
-.accent{color:#08679f}
+.accent{color:#19345E}
 .section-note{font-size:12px;line-height:1.8;color:var(--muted);margin:0 0 5px}
 .project-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:55px 22px}
 .project-card{min-width:0}
@@ -55,7 +55,7 @@ img{max-width:100%}
 .about-photo-frame{position:relative;width:100%;max-width:390px;aspect-ratio:4/5;overflow:hidden;background:#d9d8d0}
 .about-photo{display:block;width:100%;height:100%;object-fit:cover}
 .about-photo-placeholder{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(65px,9vw,110px);font-weight:800;letter-spacing:-.12em;color:#aaa99f}
-.about-photo-placeholder span{color:#08679f}
+.about-photo-placeholder span{color:#19345E}
 .about-photo-placeholder[hidden]{display:none}
 .about-copy h2{font-size:clamp(40px,5.4vw,70px);line-height:1;letter-spacing:-.08em;font-weight:600;margin:0 0 28px}
 .about-copy>p{font-size:15px;line-height:2;color:#6f7068;white-space:pre-line;max-width:650px;margin:0}
@@ -127,7 +127,7 @@ img{max-width:100%}
 .wordmark.has-custom-logo,.footer-brand.has-custom-logo{width:auto;height:42px;max-width:190px;overflow:hidden}
 .header-logo-image{display:block;width:auto;height:auto;max-width:170px;max-height:38px;object-fit:contain;object-position:left center}
 .footer-logo-image{display:block;width:auto;height:auto;max-width:135px;max-height:30px;object-fit:contain;object-position:left center}
-.wordmark:focus-visible,.footer-brand:focus-visible,.site-header nav a:focus-visible,.header-availability:focus-visible,.round-link:focus-visible,.project-card-link:focus-visible,.email-link:focus-visible,.social-links a:focus-visible,.site-footer a:focus-visible,.production-navigation a:focus-visible{outline:2px solid #08679f;outline-offset:5px;border-radius:2px}
+.wordmark:focus-visible,.footer-brand:focus-visible,.site-header nav a:focus-visible,.header-availability:focus-visible,.round-link:focus-visible,.project-card-link:focus-visible,.email-link:focus-visible,.social-links a:focus-visible,.site-footer a:focus-visible,.production-navigation a:focus-visible{outline:2px solid #19345E;outline-offset:5px;border-radius:2px}
 .site-header nav a,.header-availability,.round-link,.project-card-prompt,.email-link,.social-links a,.site-footer a,.production-navigation a{transition:color .2s ease,background-color .2s ease,border-color .2s ease,transform .2s ease,opacity .2s ease}
 .round-link{width:52px;height:52px;flex:none;cursor:pointer}
 .project-card-link{z-index:1}
@@ -136,9 +136,9 @@ img{max-width:100%}
 .email-link{min-height:44px;align-items:center}
 .social-links a,.site-footer a{min-height:36px;display:inline-flex;align-items:center}
 button,.primary,.quiet,.text-button,.project-actions button{min-height:42px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-button:focus-visible,.primary:focus-visible,.quiet:focus-visible,.text-button:focus-visible,.project-actions button:focus-visible{outline:2px solid #08679f;outline-offset:3px}
+button:focus-visible,.primary:focus-visible,.quiet:focus-visible,.text-button:focus-visible,.project-actions button:focus-visible{outline:2px solid #19345E;outline-offset:3px}
 button:active,.primary:active,.project-actions button:active,.round-link:active{transform:scale(.98)}
-@media(hover:none){.project-card-prompt{opacity:1;transform:none;background:rgba(198,243,107,.96)}.project-card:hover .project-art>img{transform:none}}
+@media(hover:none){.project-card-prompt{opacity:1;transform:none;background:rgba(25,52,94,.96)}.project-card:hover .project-art>img{transform:none}}
 @media(max-width:900px){.site-header{gap:18px}.site-header nav{margin-left:auto;margin-right:12px}.header-availability{max-width:185px;white-space:normal;line-height:1.5}.wordmark.has-custom-logo{max-width:150px}.header-logo-image{max-width:140px;max-height:34px}}
 @media(max-width:700px){.site-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:13px 16px;padding:14px 5%;}.wordmark{grid-column:1;grid-row:1}.header-availability{grid-column:2;grid-row:1;justify-self:end;max-width:155px;text-align:right;font-size:8px}.site-header nav{grid-column:1/-1;grid-row:2;display:flex;justify-content:space-between;width:100%;margin:0;padding-top:10px;border-top:1px solid var(--line);gap:8px}.site-header nav a{font-size:12px;padding:8px 4px;min-height:36px;display:flex;align-items:center}.wordmark.has-custom-logo{height:36px;max-width:135px}.header-logo-image{max-width:125px;max-height:32px}.footer-brand.has-custom-logo{max-width:125px;height:34px}.footer-logo-image{max-width:115px;max-height:26px}.project-card-prompt{font-size:11px}.contact-main h2{overflow-wrap:anywhere}.production-navigation{gap:16px}.production-nav-link strong{font-size:15px}}
 @media(max-width:380px){.header-availability{max-width:130px;font-size:7px}.site-header nav a{font-size:11px}.wordmark.has-custom-logo{max-width:115px}.header-logo-image{max-width:108px}}
@@ -192,7 +192,7 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
   color:var(--ink);
 }
 .about-status-button:focus-visible{
-  outline:2px solid #08679f;
+  outline:2px solid #19345E;
   outline-offset:4px;
 }
 @media(max-width:700px){
@@ -244,9 +244,9 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
   align-items: center;
   justify-content: center;
   padding: 13px 20px;
-  border: 1px solid #c6f36b;
+  border: 1px solid #19345E;
   border-radius: 0;
-  background: #c6f36b !important;
+  background: #19345E !important;
   color: #20211f !important;
   font-family: 'Manrope', Arial, sans-serif;
   font-size: 10px;
@@ -274,11 +274,11 @@ button:active,.primary:active,.project-actions button:active,.round-link:active{
 }
 
 .project-meta-link:hover .project-meta h3 {
-  color: #08679f;
+  color: #19345E;
 }
 
 .project-card-link:focus-visible {
-  outline: 2px solid #08679f;
+  outline: 2px solid #19345E;
   outline-offset: -5px;
 }
 
