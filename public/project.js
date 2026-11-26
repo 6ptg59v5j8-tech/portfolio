@@ -88,7 +88,7 @@
     if (favicon && faviconUrl) favicon.href = faviconUrl;
   }
 
-  function renderGallery(photos, coverUrl) {
+  function renderGallery(photos) {
     const gallery = document.createElement("section");
     gallery.className = "production-gallery section-wrap";
 
@@ -98,16 +98,6 @@
     grid.className = "production-gallery-grid";
 
     const allPhotos = Array.isArray(photos) ? [...photos] : [];
-
-    if (
-      coverUrl &&
-      !allPhotos.some(photo => photo.image_url === coverUrl)
-    ) {
-      allPhotos.unshift({
-        image_url: coverUrl,
-        alt_text: "Production cover image"
-      });
-    }
 
     allPhotos.forEach((photo, index) => {
       const url = safeUrl(photo.image_url);
@@ -121,6 +111,10 @@
       image.alt = photo.alt_text || `Production photograph ${index + 1}`;
       image.loading = "lazy";
       image.decoding = "async";
+      image.addEventListener("error", () => {
+        figure.remove();
+        if (!grid.children.length) gallery.remove();
+      }, { once: true });
 
       figure.append(image);
       grid.append(figure);
@@ -222,6 +216,8 @@
       image.src = coverUrl;
       image.alt = `${project.title} production`;
       image.fetchPriority = "high";
+      image.decoding = "async";
+      image.addEventListener("error", () => cover.remove(), { once: true });
 
       cover.append(image);
       main.append(cover);
@@ -245,7 +241,7 @@
       }
     }
 
-    const gallery = renderGallery(photos, coverUrl);
+    const gallery = renderGallery(photos);
     if (gallery) main.append(gallery);
 
     const navigation = document.createElement("nav");
