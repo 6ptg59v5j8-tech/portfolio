@@ -438,6 +438,15 @@
       renderEducation(Array.isArray(data) ? data : data.education || []);
     } catch (error) {
       console.error("Education:", error);
+      const container = $("#education-list");
+      if (container) {
+        container.replaceChildren();
+        const message = document.createElement("p");
+        message.className = "skills-empty";
+        message.setAttribute("role", "status");
+        message.textContent = "Education details could not load right now. Please refresh to try again.";
+        container.append(message);
+      }
     }
   }
 
@@ -578,14 +587,18 @@
         cache: "no-store"
       });
 
-      if (response.ok) {
-        const projects = await response.json();
+      if (!response.ok) {
+        throw new Error(`Projects request failed (${response.status}).`);
+      }
 
-        if (Array.isArray(projects)) {
-          renderProjects(projects);
-        } else if (Array.isArray(projects.projects)) {
-          renderProjects(projects.projects);
-        }
+      const projects = await response.json();
+
+      if (Array.isArray(projects)) {
+        renderProjects(projects);
+      } else if (Array.isArray(projects.projects)) {
+        renderProjects(projects.projects);
+      } else {
+        throw new Error("Projects response was not a list.");
       }
     } catch (error) {
       console.error("Projects:", error);
