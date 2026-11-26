@@ -319,9 +319,14 @@
 
   async function loadProject() {
     const path = window.location.pathname;
-    const slug = decodeURIComponent(
-      path.replace(/^\/projects\/?/, "").replace(/\/$/, "")
-    );
+    const encodedSlug = path.replace(/^\/projects\/?/, "").replace(/\/$/, "");
+    let slug = "";
+    try {
+      slug = decodeURIComponent(encodedSlug);
+    } catch {
+      showError("This production link is not valid.");
+      return;
+    }
 
     if (!slug) {
       showError("No production was specified.");
