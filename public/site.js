@@ -139,6 +139,13 @@
         image.src = imageUrl;
         image.alt = text(project.title, "Project image");
         image.loading = "lazy";
+        image.decoding = "async";
+        image.addEventListener("error", () => {
+          image.remove();
+          const fallback = document.createElement("i");
+          fallback.textContent = text(project.title, "Selected work");
+          art.insertBefore(fallback, art.querySelector(".project-card-link"));
+        }, { once: true });
         art.append(image);
       } else {
         const artworkText = document.createElement("i");
@@ -483,11 +490,11 @@
         if (elementId === "hero-title") {
           let heroLines = value.includes("|")
             ? value.split("|").map(line => line.trim()).filter(Boolean)
-            : value.split(/(?<=[.!?])\\s+/).map(line => line.trim()).filter(Boolean);
+            : value.split(/(?<=[.!?])\s+/).map(line => line.trim()).filter(Boolean);
 
           // The three-part headline may also be entered without separators.
           if (heroLines.length === 1 && /creative vision.*technical thinking.*planned execution/i.test(value)) {
-            heroLines = value.split(/\\s+(?=Technical thinking\\b|Planned execution\\b)/i).map(line => line.trim()).filter(Boolean);
+            heroLines = value.split(/\s+(?=Technical thinking\b|Planned execution\b)/i).map(line => line.trim()).filter(Boolean);
           }
 
           if (heroLines.length > 1) {
@@ -582,6 +589,15 @@
       }
     } catch (error) {
       console.error("Projects:", error);
+      const grid = $("#project-grid");
+      if (grid) {
+        grid.replaceChildren();
+        const message = document.createElement("p");
+        message.className = "skills-empty";
+        message.setAttribute("role", "status");
+        message.textContent = "Selected work could not load right now. Please refresh to try again.";
+        grid.append(message);
+      }
     }
   }
 
@@ -602,6 +618,15 @@
       );
     } catch (error) {
       console.error("Skills:", error);
+      const container = $("#skills-groups");
+      if (container) {
+        container.replaceChildren();
+        const message = document.createElement("p");
+        message.className = "skills-empty";
+        message.setAttribute("role", "status");
+        message.textContent = "Skills could not load right now. Please refresh to try again.";
+        container.append(message);
+      }
     }
   }
 
